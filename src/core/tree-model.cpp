@@ -59,7 +59,61 @@ void sign(const std::vector<TreeNode> &nodes, std::string &out)
 	}
 }
 
+bool leafOk(const TreeNode &n, const TreeFilter &f)
+{
+	if (!f.typeId.empty() && n.typeId != f.typeId)
+		return false;
+	if (!f.filterId.empty() && std::find(n.filterIds.begin(), n.filterIds.end(), f.filterId) == n.filterIds.end())
+		return false;
+	if (f.visibleOnly && !n.visible)
+		return false;
+	if (f.activeOnly && !n.active)
+		return false;
+	return true;
+}
+
+void narrow(const std::vector<TreeNode> &in, const TreeFilter &f, std::vector<TreeNode> &out)
+{
+	for (const TreeNode &n : in) {
+		switch (n.kind) {
+		case NodeKind::Section: {
+			TreeNode copy = n;
+			copy.children.clear();
+			narrow(n.children, f, copy.children);
+			if (!copy.children.empty())
+				out.push_back(std::move(copy));
+			break;
+		}
+		case NodeKind::GlobalAudio:
+		case NodeKind::Item:
+			if (f.showSources && leafOk(n, f))
+				out.push_back(n);
+			break;
+		case NodeKind::Group:
+		case NodeKind::Scene: {
+			if (f.visibleOnly && n.kind == NodeKind::Group && !n.visible)
+				break; // a hidden group hides everything in it
+			TreeNode copy = n;
+			copy.children.clear();
+			narrow(n.children, f, copy.children);
+			const bool selfMatches = f.restrictsItems() ? leafOk(n, f) : n.kind == NodeKind::Scene;
+			// Without a restriction a scene always stays; a group stays when it has matches or itself matches.
+			if (!copy.children.empty() || selfMatches)
+				out.push_back(std::move(copy));
+			break;
+		}
+		}
+	}
+}
+
 } // namespace
+
+std::vector<TreeNode> applyTreeFilter(const std::vector<TreeNode> &nodes, const TreeFilter &filter)
+{
+	std::vector<TreeNode> narrowed;
+	narrow(nodes, filter, narrowed);
+	return filterTree(narrowed, filter.query);
+}
 
 std::vector<TreeNode> filterTree(const std::vector<TreeNode> &nodes, const std::string &query)
 {

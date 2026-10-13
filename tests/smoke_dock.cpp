@@ -26,6 +26,7 @@
 #include "ui/panels/source-panel.hpp"
 #include "ui/panels/transform-panel.hpp"
 #include "ui/quick-access-bar.hpp"
+#include "ui/source-picker.hpp"
 #include "ui/source-tree-drawer.hpp"
 #include "util/plugin-config.hpp"
 
@@ -36,6 +37,7 @@
 #include <QAbstractButton>
 #include <QApplication>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QContextMenuEvent>
 #include <QDir>
 #include <QElapsedTimer>
@@ -47,6 +49,8 @@
 #include <QThread>
 #include <QTimer>
 #include <QToolButton>
+#include <QTreeWidget>
+#include <QTreeWidgetItemIterator>
 
 #include <QPointer>
 
@@ -496,6 +500,52 @@ int main(int argc, char **argv)
 		se::FilterPopouts::instance().closeAll();
 		pump(100);
 		obs_source_release(mic);
+	}
+
+	// ---- the source picker dialog ------------------------------------------------------------
+	{
+		stage("source picker: filters, current source, loading");
+		se::SourcePicker pk;
+		pk.show();
+		pump(200);
+		auto *tree = pk.findChild<QTreeWidget *>();
+		auto combos = pk.findChildren<QComboBox *>(); // [0] source type, [1] filter type
+		auto *search = pk.findChild<QLineEdit *>();
+		auto *showSources = pk.findChildren<QCheckBox *>().last(); // "Show sources"
+		expect(tree && combos.size() == 2 && search, "picker has its tree, two filters and a search box");
+		if (tree && combos.size() == 2 && search) {
+			auto top = [&] { return tree->topLevelItemCount(); };
+			const int all = top();
+			expect(all >= 2, "picker lists the scenes");
+			expect(combos[0]->findData("scene") >= 0, "source types offered include those present");
+			expect(combos[1]->findData("smoke_fx") >= 0, "filter types offered include those present");
+
+			search->setText("smoke a");
+			expect(top() == 1, "search narrows the picker");
+			search->clear();
+
+			combos[1]->setCurrentIndex(combos[1]->findData("smoke_fx"));
+			expect(top() >= 1, "filtering by filter type keeps scenes that have one");
+			combos[0]->setCurrentIndex(combos[0]->findData("scene"));
+			expect(top() >= 1, "filtering by source type keeps the scenes");
+			combos[0]->setCurrentIndex(0);
+			combos[1]->setCurrentIndex(0);
+
+			showSources->setChecked(false);
+			bool onlyScenes = true;
+			for (QTreeWidgetItemIterator it(tree); *it; ++it)
+				if ((*it)->parent() && (*it)->text(1) != "Group")
+					onlyScenes = false;
+			expect(onlyScenes, "'Show sources' off leaves scenes and groups only");
+			showSources->setChecked(true);
+
+			int chosen = 0;
+			QObject::connect(&pk, &se::SourcePicker::sourceChosen, [&](obs_source *) { ++chosen; });
+			pk.setCurrent("Smoke A");
+			expect(tree->currentItem() && tree->currentItem()->text(0) == "Smoke A", "the current source is selected");
+			expect(pk.canLoad(), "a scene row can be loaded");
+			expect(pk.loadCurrent() && chosen == 1, "loading a scene reports it as chosen");
+		}
 	}
 
 	// Releasing a scene that sits inside another scene makes libobs itself log "Double destroy just

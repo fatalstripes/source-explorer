@@ -3,6 +3,7 @@
 
 #include "core/obs-raii.hpp"
 #include "core/payload-generator.hpp"
+#include "core/tree-snapshot.hpp"
 #include "ui/scene-switch.hpp"
 #include "ui/widgets/command-menu.hpp"
 
@@ -35,122 +36,10 @@ enum Role {
 	RootRole,
 };
 
-constexpr int kMaxGroupDepth = 8; // groups cannot nest in OBS today; guard against cycles anyway
-constexpr int kGlobalAudioChannels = 6; // OBS uses output channels 1-6 for desktop/aux devices
-
 std::string nameOf(obs_source_t *s)
 {
 	const char *n = s ? obs_source_get_name(s) : nullptr;
 	return n ? n : "";
-}
-
-// ---------------------------------------------------------------------------
-// OBS -> TreeNode snapshot
-// ---------------------------------------------------------------------------
-struct ItemCollector {
-	std::vector<obs::SceneItemRef> items;
-	static bool cb(obs_scene_t *, obs_sceneitem_t *item, void *p)
-	{
-		static_cast<ItemCollector *>(p)->items.push_back(obs::retain(item)); // enum gives borrowed pointers
-		return true;
-	}
-};
-
-void collectItems(obs_scene_t *scene, const std::string &sceneName, const std::string &rootScene,
-		  const std::string &parentKey, std::vector<TreeNode> &out, int depth)
-{
-	if (!scene || depth > kMaxGroupDepth)
-		return;
-	ItemCollector c;
-	obs_scene_enum_items(scene, &ItemCollector::cb, &c);
-
-	// libobs enumerates bottom-to-top; the tree shows the top-most item first, like OBS's own list.
-	for (auto it = c.items.rbegin(); it != c.items.rend(); ++it) {
-		obs_sceneitem_t *item = it->get();
-		TreeNode n;
-		n.itemId = obs_sceneitem_get_id(item);
-		n.scene = sceneName;
-		n.rootScene = rootScene;
-		n.label = nameOf(obs_sceneitem_get_source(item));
-		n.key = parentKey + "/" + std::to_string(n.itemId);
-		n.visible = obs_sceneitem_visible(item);
-		n.locked = obs_sceneitem_locked(item);
-		if (obs_sceneitem_is_group(item)) {
-			n.kind = NodeKind::Group;
-			collectItems(obs_sceneitem_group_get_scene(item), n.label, rootScene, n.key, n.children,
-				     depth + 1);
-		} else {
-			n.kind = NodeKind::Item;
-		}
-		out.push_back(std::move(n));
-	}
-}
-
-std::vector<TreeNode> snapshot()
-{
-	std::vector<TreeNode> out;
-
-	obs_frontend_source_list scenes = {};
-	obs_frontend_get_scenes(&scenes);
-	for (size_t i = 0; i < scenes.sources.num; ++i) {
-		obs_source_t *s = scenes.sources.array[i];
-		TreeNode n;
-		n.label = nameOf(s);
-		n.key = "s:" + n.label;
-		n.kind = NodeKind::Scene;
-		n.scene = n.rootScene = n.label;
-		collectItems(obs_scene_from_source(s), n.label, n.label, n.key, n.children, 0);
-		out.push_back(std::move(n));
-	}
-	obs_frontend_source_list_free(&scenes);
-
-	TreeNode audio;
-	audio.label = "Global Audio";
-	audio.key = "g:";
-	audio.kind = NodeKind::Section;
-	for (uint32_t ch = 1; ch <= kGlobalAudioChannels; ++ch) {
-		obs::SourceRef s = obs::adopt(obs_get_output_source(ch));
-		if (!s)
-			continue;
-		TreeNode n;
-		n.label = nameOf(s.get());
-		n.key = "a:" + n.label;
-		n.kind = NodeKind::GlobalAudio;
-		audio.children.push_back(std::move(n));
-	}
-	if (!audio.children.empty())
-		out.push_back(std::move(audio));
-	return out;
-}
-
-// ---------------------------------------------------------------------------
-// OBS lookups
-// ---------------------------------------------------------------------------
-obs::SceneItemRef findItem(const std::string &sceneName, long long id)
-{
-	obs::SourceRef src = obs::sourceByName(sceneName.c_str());
-	obs_scene_t *scene = src ? obs_scene_from_source(src.get()) : nullptr; // also works for groups
-	return scene ? obs::retain(obs_scene_find_sceneitem_by_id(scene, id)) : obs::SceneItemRef();
-}
-
-void deselectAll(obs_scene_t *scene, int depth = 0)
-{
-	if (!scene || depth > kMaxGroupDepth)
-		return;
-	ItemCollector c;
-	obs_scene_enum_items(scene, &ItemCollector::cb, &c);
-	for (auto &item : c.items) {
-		obs_sceneitem_select(item.get(), false);
-		if (obs_sceneitem_is_group(item.get()))
-			deselectAll(obs_sceneitem_group_get_scene(item.get()), depth + 1);
-	}
-}
-
-// The scene the user is editing: preview in studio mode, program otherwise.
-obs::SourceRef editScene()
-{
-	return obs::adopt(obs_frontend_preview_program_mode_active() ? obs_frontend_get_current_preview_scene()
-								     : obs_frontend_get_current_scene());
 }
 
 QTreeWidgetItem *addNode(QTreeWidget *tree, QTreeWidgetItem *parent, const TreeNode &n, const QSet<QString> &expanded,
@@ -253,7 +142,7 @@ void SourceTreeDrawer::poll()
 
 void SourceTreeDrawer::refreshModel(bool force)
 {
-	model_ = snapshot();
+	model_ = snapshotTree(false);
 	std::string sig = treeSignature(model_);
 	if (!force && sig == signature_)
 		return;
@@ -348,30 +237,13 @@ void SourceTreeDrawer::onItemClicked(QTreeWidgetItem *item, int column)
 		return; // scene and section rows: single click does nothing (double-click switches)
 	}
 
-	const std::string root = item->data(0, RootRole).toString().toStdString();
-	obs::SourceRef rootSrc = obs::sourceByName(root.c_str());
-	obs_scene_t *rootScene = rootSrc ? obs_scene_from_source(rootSrc.get()) : nullptr;
-	if (!rootScene)
-		return;
-
-	obs::SourceRef edit = editScene();
-	if (!edit || nameOf(edit.get()) != root) {
-		if (!obs_frontend_preview_program_mode_active()) {
-			// Without Studio Mode, changing the edited scene changes what viewers see.
-			say(tr("\"%1\" is not the live scene. Double-click it to switch, or turn on Studio Mode to edit it "
-			       "without going live.")
-				    .arg(QString::fromStdString(root)));
-			return;
-		}
-		obs_frontend_set_current_preview_scene(rootSrc.get()); // preview only: safe
-	}
-
-	auto target = findItem(item->data(0, SceneRole).toString().toStdString(), item->data(0, IdRole).toLongLong());
-	if (!target)
-		return;
-	deselectAll(rootScene);
-	obs_sceneitem_select(target.get(), true);
-	emit selectionApplied();
+	const SelectResult r = selectSceneItem(item->data(0, RootRole).toString().toStdString(),
+					       item->data(0, SceneRole).toString().toStdString(),
+					       item->data(0, IdRole).toLongLong());
+	if (!r.message.empty())
+		say(tr("%1").arg(QString::fromStdString(r.message)));
+	else if (r.selected)
+		emit selectionApplied();
 }
 
 void SourceTreeDrawer::onItemDoubleClicked(QTreeWidgetItem *item, int column)
@@ -394,7 +266,7 @@ void SourceTreeDrawer::onItemChanged(QTreeWidgetItem *item, int column)
 	if (k != NodeKind::Item && k != NodeKind::Group)
 		return;
 
-	auto target = findItem(item->data(0, SceneRole).toString().toStdString(), item->data(0, IdRole).toLongLong());
+	auto target = findSceneItem(item->data(0, SceneRole).toString().toStdString(), item->data(0, IdRole).toLongLong());
 	if (!target)
 		return;
 	const bool on = item->checkState(column) == Qt::Checked;
@@ -404,7 +276,7 @@ void SourceTreeDrawer::onItemChanged(QTreeWidgetItem *item, int column)
 		obs_sceneitem_set_locked(target.get(), on);
 
 	// The tree already shows the new state; don't let the next poll rebuild it.
-	model_ = snapshot();
+	model_ = snapshotTree(false);
 	signature_ = treeSignature(model_);
 }
 
@@ -456,7 +328,7 @@ void SourceTreeDrawer::attachRowMenu()
 			c.reset = [self, t] {
 				if (!self)
 					return;
-				if (auto it = findItem(t.sceneName, t.sceneItemId)) {
+				if (auto it = findSceneItem(t.sceneName, t.sceneItemId)) {
 					obs_sceneitem_set_visible(it.get(), true);
 					obs_sceneitem_set_locked(it.get(), false);
 				}

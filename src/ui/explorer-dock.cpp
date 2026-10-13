@@ -15,6 +15,7 @@
 #include "ui/panels/overview-panel.hpp"
 #include "ui/panels/properties-panel.hpp"
 #include "ui/panels/transform-panel.hpp"
+#include "ui/source-picker.hpp"
 #include "ui/source-tree-drawer.hpp"
 
 #include <obs-frontend-api.h>
@@ -107,7 +108,7 @@ ExplorerDock::ExplorerDock(QWidget *parent) : QWidget(parent)
 			updateTabVisibility();
 			updateBars();
 		} else {
-			drawerButton_->toggle();
+			openPicker();
 		}
 	});
 
@@ -335,6 +336,23 @@ void ExplorerDock::updateBars()
 	context_->setContext(info);
 }
 
+// The "Select a source" dialog, opened on the loaded source. Scenes and global devices are loaded as
+// the pinned source; scene items are selected in OBS and the dock follows as it does for any selection.
+void ExplorerDock::openPicker()
+{
+	if (panelsGone_)
+		return;
+	SourcePicker picker(this);
+	if (obs_source_t *src = currentSource())
+		picker.setCurrent(QString::fromUtf8(obs_source_get_name(src)));
+	connect(&picker, &SourcePicker::sourceChosen, this, &ExplorerDock::setPinnedSource);
+	connect(&picker, &SourcePicker::selectionApplied, this, [this] {
+		allowOverride_ = true; // a deliberate pick may leave a pinned source
+		syncSelection();
+	});
+	picker.exec();
+}
+
 // Close the tree, go back to Overview and release a pin. Selection and any loaded device stay.
 void ExplorerDock::resetUi()
 {
@@ -493,9 +511,9 @@ void ExplorerDock::buildIdentityBar(QBoxLayout *root)
 	nameLabel_ = new QToolButton(this);
 	nameLabel_->setObjectName("seIdentityName");
 	nameLabel_->setText(tr("No source selected"));
-	nameLabel_->setToolTip(tr("Open the source tree"));
+	nameLabel_->setToolTip(tr("Select a source"));
 	nameLabel_->setAutoRaise(true);
-	connect(nameLabel_, &QToolButton::clicked, drawerButton_, &QToolButton::toggle);
+	connect(nameLabel_, &QToolButton::clicked, this, &ExplorerDock::openPicker);
 	typeLabel_ = new QLabel(this);
 	typeLabel_->setForegroundRole(QPalette::PlaceholderText); // muted, follows the OBS theme
 	badgeProgram_ = makeBadge(tr("Live on Program"), "program", this);

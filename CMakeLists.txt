@@ -67,6 +67,8 @@ if(SE_BUILD_PLUGIN)
         src/ui/filter-popouts.hpp
         src/ui/scene-switch.cpp
         src/ui/scene-switch.hpp
+        src/ui/source-picker.cpp
+        src/ui/source-picker.hpp
         src/ui/source-tree-drawer.cpp
         src/ui/source-tree-drawer.hpp
         src/ui/panels/audio-panel.cpp
@@ -95,6 +97,8 @@ if(SE_BUILD_PLUGIN)
         src/core/scene-item-ops.cpp
         src/core/scene-item-ops.hpp
         src/core/obs-event-bridge.cpp
+        src/core/tree-snapshot.cpp
+        src/core/tree-snapshot.hpp
         src/core/obs-event-bridge.hpp
         src/util/clipboard.cpp
         src/util/clipboard.hpp

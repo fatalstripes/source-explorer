@@ -79,6 +79,7 @@ private slots:
 	// Show a source that has no scene item (global audio devices): everything except
 	// Transform follows it, until the user selects a scene item again.
 	void setPinnedSource(obs_source_t *source);
+	void openPicker(); // the "Select a source" dialog
 
 private:
 	void updateFilterContext(obs_sceneitem_t *item, obs_source_t *editScene);
