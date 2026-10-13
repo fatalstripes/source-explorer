@@ -629,6 +629,7 @@ public:
 		bar->addWidget(button);
 		layout->addLayout(bar);
 		layout->addWidget(page, 1);
+		page->show(); // taking a page out of the QStackedWidget hid it
 	}
 };
 

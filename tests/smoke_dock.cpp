@@ -310,6 +310,8 @@ int main(int argc, char **argv)
 			expect(!hosts["source-explorer-tab-filters"].isNull() &&
 				       hosts["source-explorer-tab-filters"]->findChild<se::FiltersPanel *>() != nullptr,
 			       "the Filters panel moved into its dock");
+			if (auto *fp = hosts["source-explorer-tab-filters"]->findChild<se::FiltersPanel *>())
+				expect(fp->isVisible() && fp->height() > 100, "the detached panel is actually showing");
 
 			dock.reattachPage(P::Transform);
 			pump(200);
