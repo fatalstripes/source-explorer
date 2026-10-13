@@ -31,10 +31,11 @@ try {
 	foreach ($f in "install.ps1", "Install.cmd", "Uninstall.cmd", "README.txt") {
 		Copy-Item (Join-Path $PSScriptRoot $f) (Join-Path $stage $f)
 	}
+	Copy-Item (Join-Path $root "data\locale\en-US.ini") (Join-Path $stage "en-US.ini")
 
 	# ---- the EXE: IExpress extracts to a temp folder and runs Install.cmd ---------------------------
 	# (The uninstaller is only in the zip: an EXE that extracts to a temp folder cannot keep files.)
-	$files = "source-explorer.dll", "install.ps1", "Install.cmd", "README.txt"
+	$files = "source-explorer.dll", "install.ps1", "Install.cmd", "README.txt", "en-US.ini"
 	$fileDefs = ($files | ForEach-Object -Begin { $i = 0 } -Process { "FILE$i=`"$_`""; $i++ }) -join "`r`n"
 	$fileRefs = ($files | ForEach-Object -Begin { $i = 0 } -Process { "%FILE$i%="; $i++ }) -join "`r`n"
 	$sed = Join-Path $work "package.sed"

@@ -152,6 +152,13 @@ try {
 	$updating = Test-Path $destFile
 	New-Item -ItemType Directory -Force -Path $destDir | Out-Null
 	Copy-Item -LiteralPath $source -Destination $destFile -Force
+	# The plugin's (tiny) English locale file; without it OBS logs a harmless "failed to load text" line.
+	$locale = Join-Path $PSScriptRoot "en-US.ini"
+	if (Test-Path $locale) {
+		$localeDir = Join-Path $pluginDir "data\locale"
+		New-Item -ItemType Directory -Force -Path $localeDir | Out-Null
+		Copy-Item -LiteralPath $locale -Destination (Join-Path $localeDir "en-US.ini") -Force
+	}
 } catch [System.UnauthorizedAccessException] {
 	if (-not $Elevated -and -not (Test-IsAdmin)) {
 		Write-Host "Windows needs permission to write there. Asking for administrator rights..." -ForegroundColor Yellow
