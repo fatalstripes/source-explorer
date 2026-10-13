@@ -68,6 +68,15 @@ Download the installer from the [Releases](../../releases) page, or build it wit
 `%ProgramData%\obs-studio\plugins\source-explorer\bin\64bit\` with OBS closed, then enable the dock from
 OBS's **Docks** menu.
 
+## Reporting problems
+
+This is a work-in-progress plugin, so bugs are expected. Please [open an issue](../../issues/new) and include:
+
+- what you did, what you expected, and what happened instead (a screenshot helps);
+- your OBS Studio version (Help > About) and the plugin version (the release you installed);
+- the OBS log: Help > Log Files > Upload Current Log File, then paste the link. If OBS crashed, use Help > Log Files > View Crash Reports and attach the newest one.
+
+Only OBS Studio 32.2.x on Windows 64-bit is supported, so please say if you are on anything else.
 ## License
 
 Copyright (C) 2026 the Source Explorer authors. Licensed under the **GNU General Public License, version 2 or
