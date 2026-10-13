@@ -48,6 +48,7 @@
 #include <QTabBar>
 #include <QThread>
 #include <QTimer>
+#include <QPushButton>
 #include <QToolButton>
 #include <QTreeWidget>
 #include <QTreeWidgetItemIterator>
@@ -274,6 +275,36 @@ int main(int argc, char **argv)
 		}
 		drawer->globalSourceChosen(srcB);
 		pump(700);
+
+		stage("source tree: current source in green, expand and collapse");
+		{
+			QMetaObject::invokeMethod(&dock, "setDrawerOpen", Q_ARG(bool, true));
+			pump(900); // the tree renders on its first poll while visible
+			drawer->setCurrent("Smoke A");
+			auto *dtree = drawer->findChild<QTreeWidget *>();
+			expect(dtree != nullptr, "drawer has a tree");
+			if (dtree) {
+				bool green = false;
+				for (QTreeWidgetItemIterator it(dtree); *it; ++it)
+					if ((*it)->text(0) == "Smoke A" && (*it)->foreground(0).color().green() > 150 &&
+					    (*it)->foreground(0).color().red() < 120)
+						green = true;
+				expect(green, "the loaded source is shown in green in the tree");
+				drawer->setCurrent("");
+				green = false;
+				for (QTreeWidgetItemIterator it(dtree); *it; ++it)
+					if ((*it)->text(0) == "Smoke A" && (*it)->foreground(0).color().green() > 150 &&
+					    (*it)->foreground(0).color().red() < 120)
+						green = true;
+				expect(!green, "clearing the current source clears the green");
+			}
+			for (auto *b : drawer->findChildren<QPushButton *>())
+				if (b->text() == "Expand all" || b->text() == "Collapse all" || b->text() == "Refresh")
+					b->click();
+			pump(200);
+			QMetaObject::invokeMethod(&dock, "setDrawerOpen", Q_ARG(bool, false));
+			pump(300);
+		}
 
 		stage("scene collection changing");
 		auto *bridge = dock.findChild<se::ObsEventBridge *>();

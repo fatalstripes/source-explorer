@@ -3,6 +3,7 @@
 #include "core/tree-model.hpp"
 
 #include <QSet>
+#include <QString>
 #include <QWidget>
 
 #include <string>
@@ -31,6 +32,9 @@ public:
 	explicit SourceTreeDrawer(QWidget *parent = nullptr);
 	~SourceTreeDrawer() override;
 
+	// The source the dock has loaded; every row for it is shown in green. Empty clears.
+	void setCurrent(const QString &sourceName);
+
 signals:
 	// A global audio device was chosen (it has no scene item behind it).
 	void globalSourceChosen(obs_source *source);
@@ -49,6 +53,7 @@ private slots:
 private:
 	void refreshModel(bool force);
 	void updateSceneHighlight();
+	void applyCurrentHighlight();
 	void attachRowMenu();
 	void say(const QString &message); // transient status line under the tree
 
@@ -59,6 +64,7 @@ private:
 
 	std::vector<TreeNode> model_;
 	std::string signature_;
+	QString current_;
 	QSet<QString> expanded_; // keys of expanded rows, survives rebuilds
 	bool firstRender_ = true;
 	bool rendering_ = false;

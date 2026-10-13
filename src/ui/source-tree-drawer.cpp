@@ -12,9 +12,11 @@
 
 #include <QCursor>
 #include <QHeaderView>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QPointer>
 #include <QTimer>
 #include <QTreeWidget>
@@ -85,6 +87,16 @@ SourceTreeDrawer::SourceTreeDrawer(QWidget *parent) : QWidget(parent)
 	search_->setClearButtonEnabled(true);
 	root->addWidget(search_);
 
+	auto *tools = new QHBoxLayout;
+	auto *expand = new QPushButton(tr("Expand all"), this);
+	auto *collapse = new QPushButton(tr("Collapse all"), this);
+	auto *reload = new QPushButton(tr("Refresh"), this);
+	tools->addWidget(expand);
+	tools->addWidget(collapse);
+	tools->addWidget(reload);
+	tools->addStretch(1);
+	root->addLayout(tools);
+
 	tree_ = new QTreeWidget(this);
 	tree_->setColumnCount(3);
 	tree_->setHeaderLabels({tr("Name"), tr("Show"), tr("Lock")});
@@ -102,6 +114,9 @@ SourceTreeDrawer::SourceTreeDrawer(QWidget *parent) : QWidget(parent)
 	root->addWidget(status_);
 
 	connect(search_, &QLineEdit::textChanged, this, &SourceTreeDrawer::render);
+	connect(expand, &QPushButton::clicked, tree_, &QTreeWidget::expandAll);
+	connect(collapse, &QPushButton::clicked, tree_, &QTreeWidget::collapseAll);
+	connect(reload, &QPushButton::clicked, this, [this] { refreshModel(true); });
 	connect(tree_, &QTreeWidget::itemClicked, this, &SourceTreeDrawer::onItemClicked);
 	connect(tree_, &QTreeWidget::itemDoubleClicked, this, &SourceTreeDrawer::onItemDoubleClicked);
 	connect(tree_, &QTreeWidget::itemChanged, this, &SourceTreeDrawer::onItemChanged);
@@ -183,6 +198,27 @@ void SourceTreeDrawer::render()
 	tree_->setUpdatesEnabled(true);
 	rendering_ = false;
 	updateSceneHighlight();
+	applyCurrentHighlight();
+}
+
+void SourceTreeDrawer::setCurrent(const QString &sourceName)
+{
+	if (sourceName == current_)
+		return;
+	current_ = sourceName;
+	applyCurrentHighlight();
+}
+
+void SourceTreeDrawer::applyCurrentHighlight()
+{
+	rendering_ = true; // colour changes emit itemChanged
+	for (QTreeWidgetItemIterator it(tree_); *it; ++it) {
+		const bool on = !current_.isEmpty() && kindOf(*it) != NodeKind::Section && (*it)->text(0) == current_;
+		const QBrush want = on ? QBrush(QColor(76, 175, 80)) : QBrush();
+		if ((*it)->foreground(0) != want)
+			(*it)->setForeground(0, want);
+	}
+	rendering_ = false;
 }
 
 void SourceTreeDrawer::updateSceneHighlight()

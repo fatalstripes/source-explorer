@@ -17,7 +17,7 @@ It is an independent, from-scratch implementation inspired by the StreamUP Sourc
   source (visibility, lock, snapshot, pin, mute, monitoring, browser refresh, capture activate,
   transform popup, media controls).
 - **Tabs** that hide when they do not apply: Overview, Source, Transform, Audio, Filters, Properties, Misc.
-- **Source tree drawer**: scenes, groups and items with live show/lock toggles, search, and the global audio devices.
+- **Source tree drawer**: scenes, groups and items with live show/lock toggles, search, and the global audio devices. Expand all, collapse all and refresh, and the loaded source in green.
 - **Command copier**: right-click a field for its command, or a label for combined commands (position X+Y,
   size, full transform, full payload...). Each offers Streamer.bot C#, obs-websocket Set and Get, plus Reset.
 - **Filters tab** laid out like OBS's own dialog (Audio/Video and Effect lists, tabs for the source, its group

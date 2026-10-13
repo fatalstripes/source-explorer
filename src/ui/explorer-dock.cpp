@@ -310,6 +310,7 @@ void ExplorerDock::syncSelection()
 void ExplorerDock::updateBars()
 {
 	obs_source_t *src = currentSource();
+	drawer_->setCurrent(src ? QString::fromUtf8(obs_source_get_name(src)) : QString());
 	quick_->setTarget(pinned_ ? nullptr : lastItem_.get(), src);
 	quick_->refresh();
 
