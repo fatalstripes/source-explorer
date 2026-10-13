@@ -1,0 +1,16 @@
+{
+  "display_name": "Source Explorer",
+  "id": "io.github.fatalstripes.source-explorer",
+  "name": "source-explorer",
+  "version": "0.2.1",
+  "os_arch": "windows-x64",
+  "description": "Edit everything about an OBS source in one dock, and copy Streamer.bot / obs-websocket commands for it.",
+  "long_description": "A dock that puts a source's transform, audio, filters and properties in one place, with right-click Command Copier menus that generate Streamer.bot C# and obs-websocket v5 commands for almost any field. Includes a source picker, popped-out filter windows, filter copy/paste and detachable tabs. Independent implementation inspired by the StreamUP Source Explorer. Built for OBS Studio 32.2.x on Windows 64-bit.",
+  "urls": {
+    "repository": "https://github.com/fatalstripes/source-explorer",
+    "website": "https://github.com/fatalstripes/source-explorer",
+    "support": "https://github.com/fatalstripes/source-explorer/issues"
+  },
+  "has_banner": false,
+  "has_icon": false
+}

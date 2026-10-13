@@ -32,10 +32,11 @@ try {
 		Copy-Item (Join-Path $PSScriptRoot $f) (Join-Path $stage $f)
 	}
 	Copy-Item (Join-Path $root "data\locale\en-US.ini") (Join-Path $stage "en-US.ini")
+	Copy-Item (Join-Path $root "data\manifest.json") (Join-Path $stage "manifest.json")
 
 	# ---- the EXE: IExpress extracts to a temp folder and runs Install.cmd ---------------------------
 	# (The uninstaller is only in the zip: an EXE that extracts to a temp folder cannot keep files.)
-	$files = "source-explorer.dll", "install.ps1", "Install.cmd", "README.txt", "en-US.ini"
+	$files = "source-explorer.dll", "install.ps1", "Install.cmd", "README.txt", "en-US.ini", "manifest.json"
 	$fileDefs = ($files | ForEach-Object -Begin { $i = 0 } -Process { "FILE$i=`"$_`""; $i++ }) -join "`r`n"
 	$fileRefs = ($files | ForEach-Object -Begin { $i = 0 } -Process { "%FILE$i%="; $i++ }) -join "`r`n"
 	$sed = Join-Path $work "package.sed"

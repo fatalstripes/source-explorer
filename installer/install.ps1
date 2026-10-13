@@ -159,6 +159,12 @@ try {
 		New-Item -ItemType Directory -Force -Path $localeDir | Out-Null
 		Copy-Item -LiteralPath $locale -Destination (Join-Path $localeDir "en-US.ini") -Force
 	}
+	# The manifest is what OBS's own Plugin Manager shows (name, version, description, links).
+	$manifest = Join-Path $PSScriptRoot "manifest.json"
+	if (Test-Path $manifest) {
+		New-Item -ItemType Directory -Force -Path (Join-Path $pluginDir "data") | Out-Null
+		Copy-Item -LiteralPath $manifest -Destination (Join-Path $pluginDir "data\manifest.json") -Force
+	}
 } catch [System.UnauthorizedAccessException] {
 	if (-not $Elevated -and -not (Test-IsAdmin)) {
 		Write-Host "Windows needs permission to write there. Asking for administrator rights..." -ForegroundColor Yellow
