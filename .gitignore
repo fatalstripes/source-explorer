@@ -1,0 +1,16 @@
+# Build output
+/build/
+
+# Local OBS/Qt SDK: ~1.8 GB of downloads. Recreate it with cmake/setup-sdk.ps1
+/sdk/
+
+# Installer output: publish these as GitHub Release assets instead of committing binaries
+/dist/
+
+# IDE / OS
+.vs/
+.vscode/
+*.user
+*.suo
+CMakeUserPresets.json
+Thumbs.db
