@@ -15,6 +15,7 @@ class QTreeWidget;
 class QTreeWidgetItem;
 
 struct obs_source;
+struct obs_scene_item;
 
 namespace se {
 
@@ -35,6 +36,8 @@ signals:
 	void globalSourceChosen(obs_source *source);
 	// OBS's selection was changed on the user's behalf; callers may re-sync now.
 	void selectionApplied();
+	// A scene item in a scene that is not live: OBS is left alone, the caller loads the item itself.
+	void itemChosen(obs_scene_item *item, const QString &rootScene);
 
 private slots:
 	void poll();

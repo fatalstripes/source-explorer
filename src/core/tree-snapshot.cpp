@@ -168,9 +168,9 @@ SelectResult selectSceneItem(const std::string &root, const std::string &sceneNa
 	if (!edit || nameOf(edit.get()) != root) {
 		if (!obs_frontend_preview_program_mode_active()) {
 			// Without Studio Mode, changing the edited scene changes what viewers see.
-			r.message = "\"" + root +
-				    "\" is not the live scene. Double-click it to switch, or turn on Studio Mode to edit it "
-				    "without going live.";
+			r.item = findSceneItem(sceneName, itemId);
+			r.rootScene = root;
+			r.loadOnly = static_cast<bool>(r.item);
 			return r;
 		}
 		obs_frontend_set_current_preview_scene(rootSrc.get()); // preview only: safe

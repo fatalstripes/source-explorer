@@ -240,7 +240,9 @@ void SourceTreeDrawer::onItemClicked(QTreeWidgetItem *item, int column)
 	const SelectResult r = selectSceneItem(item->data(0, RootRole).toString().toStdString(),
 					       item->data(0, SceneRole).toString().toStdString(),
 					       item->data(0, IdRole).toLongLong());
-	if (!r.message.empty())
+	if (r.loadOnly)
+		emit itemChosen(r.item.get(), QString::fromStdString(r.rootScene));
+	else if (!r.message.empty())
 		say(tr("%1").arg(QString::fromStdString(r.message)));
 	else if (r.selected)
 		emit selectionApplied();

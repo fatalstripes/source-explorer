@@ -56,6 +56,9 @@ public:
 
 	// A tab can be moved out of the dock into its own OBS dock (right-click it in the rail). The panel
 	// is the same object, so it keeps following the selection. Which tabs are detached is remembered.
+	// Load a scene item the user picked in a scene that is not live. OBS's selection is untouched; the
+	// dock holds the item (as if pinned) and the status bar warns that it is in another scene.
+	void loadItem(obs_sceneitem_t *item, const QString &rootScene);
 	void detachPage(Page page);
 	void reattachPage(Page page);
 	void reattachAll();

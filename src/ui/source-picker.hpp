@@ -16,6 +16,8 @@ class QTreeWidget;
 class QTreeWidgetItem;
 
 struct obs_source;
+struct obs_scene_item;
+using obs_sceneitem = obs_scene_item;
 
 namespace se {
 
@@ -43,6 +45,8 @@ signals:
 	void sourceChosen(obs_source *source);
 	// A scene item was selected in OBS itself; callers may re-sync now.
 	void selectionApplied();
+	// A scene item in a scene that is not live: OBS is left alone, the caller loads the item itself.
+	void itemChosen(obs_sceneitem *item, const QString &rootScene);
 
 private:
 	void render();

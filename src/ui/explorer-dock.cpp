@@ -4,6 +4,7 @@
 #include "core/obs-event-bridge.hpp"
 #include "core/obs-raii.hpp"
 #include "core/quick-access.hpp"
+#include "core/tree-snapshot.hpp"
 #include "ui/dock-placement.hpp"
 #include "ui/dock-style.hpp"
 #include "util/plugin-config.hpp"
@@ -80,6 +81,7 @@ ExplorerDock::ExplorerDock(QWidget *parent) : QWidget(parent)
 	drawerAnim_->setDuration(160);
 	drawerAnim_->setEasingCurve(QEasingCurve::OutCubic);
 	connect(drawer_, &SourceTreeDrawer::globalSourceChosen, this, &ExplorerDock::setPinnedSource);
+	connect(drawer_, &SourceTreeDrawer::itemChosen, this, &ExplorerDock::loadItem);
 	// A pick in the source tree is deliberate, so it may leave a pinned source.
 	connect(drawer_, &SourceTreeDrawer::selectionApplied, this, [this] {
 		allowOverride_ = true;
@@ -350,7 +352,24 @@ void ExplorerDock::openPicker()
 		allowOverride_ = true; // a deliberate pick may leave a pinned source
 		syncSelection();
 	});
+	connect(&picker, &SourcePicker::itemChosen, this, &ExplorerDock::loadItem);
 	picker.exec();
+}
+
+void ExplorerDock::loadItem(obs_sceneitem_t *item, const QString &rootScene)
+{
+	if (!item || panelsGone_)
+		return;
+	pinned_.reset();
+	lastItem_ = obs::retain(item);
+	rootSceneName_ = rootScene.toStdString();
+	hold_ = true; // stay on it: OBS's selection is somewhere else
+	quick_->setPinned(true);
+	obs::SourceRef edit = editScene();
+	applySelection(item, edit.get());
+	updateTabVisibility();
+	updateBars();
+	showSourceIdentity(obs_sceneitem_get_source(item));
 }
 
 // Close the tree, go back to Overview and release a pin. Selection and any loaded device stay.

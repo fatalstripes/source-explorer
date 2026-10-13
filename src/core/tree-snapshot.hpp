@@ -20,13 +20,19 @@ obs::SceneItemRef findSceneItem(const std::string &sceneName, long long itemId);
 obs::SourceRef editScene();
 
 struct SelectResult {
-	bool selected = false;
-	std::string message; // why nothing was selected, when the user should be told
+	bool selected = false; // the item is now selected in OBS
+	// The item lives in a scene other than the live one and Studio Mode is off, so OBS's selection was
+	// left alone (switching scenes would change what viewers see). The caller should load `item`
+	// directly instead.
+	bool loadOnly = false;
+	obs::SceneItemRef item;
+	std::string rootScene;
+	std::string message; // set only when nothing could be done
 };
 
 // Select the scene item `itemId` of `sceneName` (a scene or a group) in OBS. If it lives in a scene
-// other than the one being edited, the preview is switched when Studio Mode is on; otherwise nothing
-// changes (switching would put that scene live) and `message` explains.
+// other than the one being edited, the preview is switched when Studio Mode is on; otherwise OBS is
+// left alone and the result is `loadOnly`.
 SelectResult selectSceneItem(const std::string &rootScene, const std::string &sceneName, long long itemId);
 
 } // namespace se

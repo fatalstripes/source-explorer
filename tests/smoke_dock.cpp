@@ -284,6 +284,12 @@ int main(int argc, char **argv)
 		bridge->frontendEvent(int(OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGING));
 		pump(300);
 
+		stage("load an item from a non-live scene");
+		dock.loadItem(item, "Smoke A");
+		pump(400);
+		if (auto *qb = dock.findChild<se::QuickAccessBar *>())
+			expect(qb->pinned(), "a directly loaded item is held (pinned)");
+
 		stage("detach and reattach tabs");
 		{
 			// Stand-in for OBS's dock machinery: each detached tab becomes a plain window.
@@ -545,6 +551,19 @@ int main(int argc, char **argv)
 			expect(tree->currentItem() && tree->currentItem()->text(0) == "Smoke A", "the current source is selected");
 			expect(pk.canLoad(), "a scene row can be loaded");
 			expect(pk.loadCurrent() && chosen == 1, "loading a scene reports it as chosen");
+
+			// An item in a scene that is not live (there is no live scene here): OBS must be left
+			// alone and the dock told to load the item itself.
+			int loaded = 0;
+			QObject::connect(&pk, &se::SourcePicker::itemChosen, [&](obs_sceneitem_t *, const QString &root) {
+				if (root == "Smoke A")
+					++loaded;
+			});
+			pk.setCurrent("Smoke B");
+			for (QTreeWidgetItemIterator it(tree); *it; ++it)
+				if ((*it)->parent() && (*it)->text(0) == "Smoke B")
+					tree->setCurrentItem(*it);
+			expect(pk.loadCurrent() && loaded == 1, "an item in a non-live scene is loaded directly");
 		}
 	}
 

@@ -294,6 +294,10 @@ bool SourcePicker::loadCurrent()
 			status_->setVisible(true);
 			return false; // stay open: the user can pick something else
 		}
+		if (r.loadOnly) {
+			emit itemChosen(r.item.get(), QString::fromStdString(r.rootScene)); // receiver retains
+			return true;
+		}
 		if (!r.selected)
 			return false;
 		emit selectionApplied();
