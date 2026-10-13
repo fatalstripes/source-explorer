@@ -88,9 +88,13 @@ SourceTreeDrawer::SourceTreeDrawer(QWidget *parent) : QWidget(parent)
 	root->addWidget(search_);
 
 	auto *tools = new QHBoxLayout;
-	auto *expand = new QPushButton(tr("Expand all"), this);
-	auto *collapse = new QPushButton(tr("Collapse all"), this);
+	// Short labels: the drawer is narrow. The tooltips carry the full wording.
+	auto *expand = new QPushButton(tr("Expand"), this);
+	expand->setToolTip(tr("Expand all"));
+	auto *collapse = new QPushButton(tr("Collapse"), this);
+	collapse->setToolTip(tr("Collapse all"));
 	auto *reload = new QPushButton(tr("Refresh"), this);
+	reload->setToolTip(tr("Read the scenes and sources again"));
 	tools->addWidget(expand);
 	tools->addWidget(collapse);
 	tools->addWidget(reload);

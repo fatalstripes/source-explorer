@@ -299,7 +299,7 @@ int main(int argc, char **argv)
 				expect(!green, "clearing the current source clears the green");
 			}
 			for (auto *b : drawer->findChildren<QPushButton *>())
-				if (b->text() == "Expand all" || b->text() == "Collapse all" || b->text() == "Refresh")
+				if (b->text() == "Expand" || b->text() == "Collapse" || b->text() == "Refresh")
 					b->click();
 			pump(200);
 			QMetaObject::invokeMethod(&dock, "setDrawerOpen", Q_ARG(bool, false));
