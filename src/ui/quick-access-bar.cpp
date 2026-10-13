@@ -48,7 +48,7 @@ QuickAccessBar::QuickAccessBar(QWidget *parent) : QWidget(parent)
 		if (changed)
 			rebuild();
 		else if (auto it = buttons_.find(QuickButton::CloseFilterWindows); it != buttons_.end())
-			it->second->setText(tr("Close filter windows (%1)").arg(n));
+			it->second->setText(tr("Close all filter windows (%1)").arg(n));
 	});
 	rebuild();
 }
@@ -267,7 +267,7 @@ void QuickAccessBar::rebuild()
 			break;
 		}
 		case QuickButton::CloseFilterWindows: {
-			auto *b = addButton(kind, tr("Close filter windows (%1)").arg(traits_.openFilterWindows),
+			auto *b = addButton(kind, tr("Close all filter windows (%1)").arg(traits_.openFilterWindows),
 					    tr("Close every filter window that was popped out of the Filters tab"), false);
 			connect(b, &QToolButton::clicked, this, [] { FilterPopouts::instance().closeAll(); });
 			break;

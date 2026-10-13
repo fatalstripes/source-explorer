@@ -45,6 +45,7 @@ public:
 
 protected:
 	void showEvent(QShowEvent *event) override;
+	bool eventFilter(QObject *watched, QEvent *event) override; // drag a rail tab out to detach it
 	void changeEvent(QEvent *event) override;
 
 public:
@@ -133,6 +134,7 @@ private:
 	Detached detached_[PageCount];
 	QWidget *pages_[PageCount] = {}; // what sits in stack_ for each page (its scroll area)
 	bool reattaching_ = false;
+	int railPressRow_ = -1; // rail row under the mouse button, while it is held
 	bool panelsGone_ = false;        // a detached dock was destroyed under us (OBS shutting down)
 	void showRailMenu(const QPoint &pos);
 	void saveDetached() const;

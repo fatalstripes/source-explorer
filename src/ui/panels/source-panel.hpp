@@ -3,6 +3,7 @@
 #include "core/obs-raii.hpp"
 #include "core/payload-generator.hpp"
 
+#include <QPointer>
 #include <QWidget>
 
 class QComboBox;
@@ -11,6 +12,7 @@ class QLabel;
 class QLineEdit;
 class QPushButton;
 class QSpinBox;
+class QToolButton;
 class QTimer;
 
 namespace se {
@@ -54,6 +56,10 @@ private:
 	QPushButton *screenshot_ = nullptr;
 	QWidget *showRow_ = nullptr;
 	QComboBox *showType_ = nullptr;
+	QToolButton *showProps_ = nullptr;
+	QToolButton *hideProps_ = nullptr;
+	QPointer<QWidget> transitionWindow_[2]; // [0] hide, [1] show
+	void openTransitionSettings(bool show);
 	QSpinBox *showMs_ = nullptr;
 	QWidget *hideRow_ = nullptr;
 	QComboBox *hideType_ = nullptr;

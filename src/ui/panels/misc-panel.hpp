@@ -51,6 +51,7 @@ private:
 	QCheckBox *locked_ = nullptr;
 	QLabel *active_ = nullptr;
 	QLabel *showing_ = nullptr;
+	QLabel *hidden_ = nullptr;
 	QLabel *enabled_ = nullptr;
 	QLabel *filters_ = nullptr;
 	QVBoxLayout *scenes_ = nullptr;

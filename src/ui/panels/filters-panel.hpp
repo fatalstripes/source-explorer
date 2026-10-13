@@ -44,6 +44,7 @@ public:
 	// For the smoke test.
 	int rowCount(FilterSection section) const;
 	void expandAll(bool expanded);
+	void resetLayout(); // Reset UI: reopens collapsed sections
 
 private slots:
 	void poll();

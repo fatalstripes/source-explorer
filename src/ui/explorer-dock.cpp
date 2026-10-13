@@ -31,6 +31,7 @@
 #include <QShowEvent>
 #include <QLabel>
 #include <QListWidget>
+#include <QMouseEvent>
 #include <QMenu>
 #include <QPushButton>
 #include <QSettings>
@@ -179,6 +180,7 @@ ExplorerDock::ExplorerDock(QWidget *parent) : QWidget(parent)
 	}
 	rail_->setCurrentRow(Overview);
 	connect(rail_, &QListWidget::currentRowChanged, stack_, &QStackedWidget::setCurrentIndex);
+	rail_->viewport()->installEventFilter(this);
 	rail_->setContextMenuPolicy(Qt::CustomContextMenu);
 	connect(rail_, &QWidget::customContextMenuRequested, this, &ExplorerDock::showRailMenu);
 
@@ -378,6 +380,7 @@ void ExplorerDock::loadItem(obs_sceneitem_t *item, const QString &rootScene)
 void ExplorerDock::resetUi()
 {
 	reattachAll();
+	filters_->resetLayout();
 	hold_ = false;
 	quick_->setPinned(false);
 	drawerButton_->setChecked(false);
@@ -722,6 +725,39 @@ void ExplorerDock::saveDetached() const
 		uiSettings().setValue("tabs/detached", names);
 }
 
+// Dragging a tab off the rail (a little way beyond it) detaches it, like right-click > Detach.
+bool ExplorerDock::eventFilter(QObject *watched, QEvent *event)
+{
+	if (rail_ && watched == rail_->viewport()) {
+		switch (event->type()) {
+		case QEvent::MouseButtonPress: {
+			auto *me = static_cast<QMouseEvent *>(event);
+			QListWidgetItem *item = me->button() == Qt::LeftButton ? rail_->itemAt(me->position().toPoint()) : nullptr;
+			railPressRow_ = item ? rail_->row(item) : -1;
+			break;
+		}
+		case QEvent::MouseMove: {
+			auto *me = static_cast<QMouseEvent *>(event);
+			if (railPressRow_ >= 0 && (me->buttons() & Qt::LeftButton)) {
+				const QRect away = rail_->viewport()->rect().adjusted(-24, -24, 24, 24);
+				if (!away.contains(me->position().toPoint())) {
+					const Page page = Page(railPressRow_);
+					railPressRow_ = -1;
+					QTimer::singleShot(0, this, [this, page] { detachPage(page); });
+				}
+			}
+			break;
+		}
+		case QEvent::MouseButtonRelease:
+			railPressRow_ = -1;
+			break;
+		default:
+			break;
+		}
+	}
+	return QWidget::eventFilter(watched, event);
+}
+
 void ExplorerDock::detachPage(Page page)
 {
 	if (isDetached(page) || !pages_[page] || panelsGone_)
@@ -760,6 +796,8 @@ void ExplorerDock::reattachPage(Page page)
 	if (!isDetached(page))
 		return;
 	QPointer<QWidget> host = detached_[page].host;
+	if (host)
+		host->disconnect(this); // a deliberate reattach is not OBS tearing the dock down, however late the host dies
 	reattaching_ = true;
 	QWidget *placeholder = stack_->widget(page);
 	stack_->removeWidget(placeholder);

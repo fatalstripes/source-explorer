@@ -156,6 +156,8 @@ void MiscPanel::buildUi()
 	toggleForm_->addRow(tr("Active"), active_);
 	showing_ = new QLabel(status);
 	toggleForm_->addRow(tr("Showing"), showing_);
+	hidden_ = new QLabel(status);
+	toggleForm_->addRow(tr("Hidden"), hidden_);
 	enabled_ = new QLabel(status);
 	toggleForm_->addRow(tr("Enabled"), enabled_);
 	filters_ = new QLabel(status);
@@ -298,6 +300,7 @@ void MiscPanel::refresh()
 		muted_->setChecked(obs_source_muted(src));
 		active_->setText(yesNo(obs_source_active(src)));
 		showing_->setText(yesNo(obs_source_showing(src)));
+		hidden_->setText(yesNo(obs_source_is_hidden(src)));
 		enabled_->setText(yesNo(obs_source_enabled(src)));
 		filters_->setText(QString::number(obs_source_filter_count(src)));
 		if (hasItem) {

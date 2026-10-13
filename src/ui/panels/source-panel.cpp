@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 #include "ui/panels/source-panel.hpp"
 
+#include "ui/panels/properties-panel.hpp"
 #include "ui/widgets/command-menu.hpp"
 
 #include <obs-frontend-api.h>
@@ -13,9 +14,11 @@
 #include <QLineEdit>
 #include <QPointer>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSpinBox>
 #include <QTimer>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 #include <string>
@@ -140,6 +143,33 @@ void SourcePanel::applyTransition(bool show, const QString &typeId)
 		obs_sceneitem_set_transition_duration(item_.get(), show, 300); // OBS's usual default
 }
 
+// A floating window with the transition's own properties (duration aside), like OBS's gear button.
+void SourcePanel::openTransitionSettings(bool show)
+{
+	if (!item_)
+		return;
+	obs_source_t *t = obs_sceneitem_get_transition(item_.get(), show); // borrowed
+	if (!t)
+		return;
+	QPointer<QWidget> &slot = transitionWindow_[show ? 1 : 0];
+	if (slot)
+		slot->close();
+	auto *win = new QWidget(this, Qt::Window | Qt::Tool);
+	win->setAttribute(Qt::WA_DeleteOnClose);
+	win->setWindowTitle(show ? tr("Show transition settings") : tr("Hide transition settings"));
+	auto *layout = new QVBoxLayout(win);
+	auto *scroll = new QScrollArea(win);
+	scroll->setWidgetResizable(true);
+	scroll->setFrameShape(QFrame::NoFrame);
+	auto *panel = new PropertiesPanel(PropertiesPanel::Mode::Embedded, scroll);
+	panel->setTarget(t); // the panel keeps its own reference
+	scroll->setWidget(panel);
+	layout->addWidget(scroll);
+	win->resize(380, 420);
+	slot = win;
+	win->show();
+}
+
 void SourcePanel::buildUi()
 {
 	auto *root = new QVBoxLayout(this);
@@ -169,7 +199,7 @@ void SourcePanel::buildUi()
 	screenshot_ = new QPushButton(tr("Take screenshot"), this);
 	form_->addRow(tr("Image"), screenshot_);
 
-	auto makeTransitionRow = [this](bool show, QComboBox *&type, QSpinBox *&ms) {
+	auto makeTransitionRow = [this](bool show, QComboBox *&type, QSpinBox *&ms, QToolButton *&props) {
 		auto *row = new QWidget(this);
 		auto *h = new QHBoxLayout(row);
 		h->setContentsMargins(0, 0, 0, 0);
@@ -178,13 +208,18 @@ void SourcePanel::buildUi()
 		ms->setRange(0, 60000);
 		ms->setSingleStep(50);
 		ms->setSuffix(" ms");
+		props = new QToolButton(row);
+		props->setText(tr("Settings"));
+		props->setToolTip(tr("Edit this transition's own settings"));
 		h->addWidget(type, 1);
 		h->addWidget(ms);
+		h->addWidget(props);
+		connect(props, &QToolButton::clicked, this, [this, show] { openTransitionSettings(show); });
 		return row;
 	};
-	showRow_ = makeTransitionRow(true, showType_, showMs_);
+	showRow_ = makeTransitionRow(true, showType_, showMs_, showProps_);
 	form_->addRow(tr("Show transition"), showRow_);
-	hideRow_ = makeTransitionRow(false, hideType_, hideMs_);
+	hideRow_ = makeTransitionRow(false, hideType_, hideMs_, hideProps_);
 	form_->addRow(tr("Hide transition"), hideRow_);
 
 	blendMode_ = new QComboBox(this);
@@ -415,7 +450,7 @@ void SourcePanel::refresh()
 			if (!index_->hasFocus())
 				index_->setValue(obs_sceneitem_get_order_position(it));
 
-			auto selectTransition = [&](bool show, QComboBox *type, QSpinBox *ms) {
+			auto selectTransition = [&](bool show, QComboBox *type, QSpinBox *ms, QToolButton *props) {
 				obs_source_t *t = obs_sceneitem_get_transition(it, show); // borrowed
 				const QString id = t ? QString::fromUtf8(obs_source_get_id(t)) : QString();
 				const int at = type->findData(id);
@@ -423,9 +458,10 @@ void SourcePanel::refresh()
 				if (!ms->hasFocus())
 					ms->setValue(int(obs_sceneitem_get_transition_duration(it, show)));
 				ms->setEnabled(t != nullptr);
+				props->setEnabled(t != nullptr);
 			};
-			selectTransition(true, showType_, showMs_);
-			selectTransition(false, hideType_, hideMs_);
+			selectTransition(true, showType_, showMs_, showProps_);
+			selectTransition(false, hideType_, hideMs_, hideProps_);
 
 			blendMode_->setCurrentIndex(int(obs_sceneitem_get_blending_mode(it)));
 			blendMethod_->setCurrentIndex(int(obs_sceneitem_get_blending_method(it)));

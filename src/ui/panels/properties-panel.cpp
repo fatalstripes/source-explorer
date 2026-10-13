@@ -162,6 +162,13 @@ void PropertiesPanel::setFilter(obs_source_t *source, const std::string &filterN
 	rebuildForm();
 }
 
+void PropertiesPanel::setTarget(obs_source_t *target)
+{
+	direct_ = true;
+	source_ = obs::retain(target);
+	rebuildForm();
+}
+
 void PropertiesPanel::onTargetChanged(int)
 {
 	rebuildForm();
@@ -240,7 +247,7 @@ void PropertiesPanel::rebuildForm()
 		const int idx = targets_->currentIndex();
 		filterName = idx > 0 ? targets_->currentData().toString() : QString();
 	}
-	if (filterName.isEmpty() && mode_ == Mode::Embedded)
+	if (filterName.isEmpty() && mode_ == Mode::Embedded && !direct_)
 		return finish(tr("That filter no longer exists."));
 	if (filterName.isEmpty())
 		target_ = obs::retain(source_.get());
@@ -696,7 +703,7 @@ std::pair<ObsRequest, ObsRequest> PropertiesPanel::requestsFor(Json settings) co
 
 std::optional<CommandSet> PropertiesPanel::commandsFor(const std::string &name, Json value)
 {
-	if (!source_ || !target_)
+	if (!source_ || !target_ || direct_)
 		return std::nullopt;
 
 	Json settings = Json::object();
@@ -715,7 +722,7 @@ std::optional<CommandSet> PropertiesPanel::commandsFor(const std::string &name, 
 std::optional<CommandSet> PropertiesPanel::labelCommandsFor(const std::string &name, const std::string &title,
 							    Json value)
 {
-	if (!source_ || !target_)
+	if (!source_ || !target_ || direct_)
 		return std::nullopt;
 
 	Json one = Json::object();

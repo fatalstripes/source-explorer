@@ -41,6 +41,9 @@ public:
 	void setSource(obs_source_t *source); // nullptr clears
 	// Embedded mode: the filter called `filterName` on `source`.
 	void setFilter(obs_source_t *source, const std::string &filterName);
+	// Embedded mode: edit this source itself (for example an item's private transition). It has no name
+	// obs-websocket could address, so the fields offer no command copier.
+	void setTarget(obs_source_t *target);
 
 private slots:
 	void poll();
@@ -78,6 +81,7 @@ private:
 	bool building_ = false;
 	Mode mode_ = Mode::Full;
 	std::string embeddedFilter_;
+	bool direct_ = false;
 
 	QComboBox *targets_ = nullptr;
 	QVBoxLayout *embeddedLayout_ = nullptr; // Embedded mode only: where content_ lives

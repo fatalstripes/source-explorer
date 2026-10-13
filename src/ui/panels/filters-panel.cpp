@@ -283,7 +283,7 @@ FiltersPanel::FiltersPanel(QWidget *parent) : QWidget(parent)
 	row3->addStretch(1);
 
 	auto updateWindowsButton = [this](int n) {
-		closeWindowsButton_->setText(tr("Close filter windows (%1)").arg(n));
+		closeWindowsButton_->setText(tr("Close all dialogs (%1)").arg(n));
 		closeWindowsButton_->setVisible(n > 0);
 	};
 	updateWindowsButton(FilterPopouts::instance().count());
@@ -329,7 +329,7 @@ void FiltersPanel::setContext(obs_source_t *source, obs_source_t *group, obs_sou
 	{
 		QSignalBlocker b(tabs_);
 		for (int i = 0; i < TabCount; ++i)
-			tabs_->setTabEnabled(i, static_cast<bool>(sources_[i]));
+			tabs_->setTabVisible(i, static_cast<bool>(sources_[i])); // Group / Scene only when they exist
 		int pick = sources_[wantedTab_] ? wantedTab_ : -1;
 		for (int i = 0; pick < 0 && i < TabCount; ++i)
 			if (sources_[i])
@@ -347,6 +347,13 @@ obs_source_t *FiltersPanel::parent() const
 {
 	const int i = tabs_->currentIndex();
 	return i >= 0 && i < TabCount ? sources_[i].get() : nullptr;
+}
+
+// Reset UI: reopen any section that was collapsed.
+void FiltersPanel::resetLayout()
+{
+	for (SectionUi &s : sections_)
+		s.header->setChecked(true);
 }
 
 void FiltersPanel::onTabChanged(int i)

@@ -27,6 +27,7 @@
 #include "ui/panels/transform-panel.hpp"
 #include "ui/quick-access-bar.hpp"
 #include "ui/source-picker.hpp"
+#include "ui/widgets/reorder-list.hpp"
 #include "ui/source-tree-drawer.hpp"
 #include "util/plugin-config.hpp"
 
@@ -42,13 +43,18 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QSettings>
 #include <QTabBar>
 #include <QThread>
 #include <QTimer>
+#include <QMouseEvent>
 #include <QPushButton>
+#include <QScrollArea>
+#include <QScrollBar>
+#include <QVBoxLayout>
 #include <QToolButton>
 #include <QTreeWidget>
 #include <QTreeWidgetItemIterator>
@@ -56,6 +62,7 @@
 #include <QPointer>
 
 #include <cstdio>
+#include <cstdlib>
 #include <map>
 
 namespace {
@@ -151,9 +158,20 @@ void pump(int ms)
 // Click every button-like widget under `root` (tool buttons, checkboxes, anchor cells, ...).
 void clickEverything(QWidget *root)
 {
-	for (auto *b : root->findChildren<QAbstractButton *>()) {
-		if (!b->isEnabled())
+	// A click can run a nested event loop (a dialog), during which the UI rebuilds itself and deletes
+	// buttons still in this list; guarded pointers turn those into nulls instead of dangling pointers.
+	QList<QPointer<QAbstractButton>> buttons;
+	for (auto *b : root->findChildren<QAbstractButton *>())
+		buttons.append(b);
+	for (const auto &guarded : buttons) {
+		QAbstractButton *b = guarded.data();
+		if (!b || !b->isEnabled())
 			continue;
+		if (std::getenv("SE_TRACE_CLICKS")) {
+			std::fprintf(stderr, "[click] %s '%s'\n", b->metaObject()->className(),
+				     b->text().toUtf8().constData());
+			std::fflush(stderr);
+		}
 		b->click();
 		++g_buttonsClicked;
 	}
@@ -395,6 +413,26 @@ int main(int argc, char **argv)
 			pump(100);
 			expect(hosts.empty(), "reattach all closes every detached dock");
 
+			// Dragging a tab off the rail detaches it.
+			{
+				QWidget *vp = rail->viewport();
+				const QPoint start = rail->visualItemRect(rail->item(P::Overview)).center();
+				const QPoint out(-90, start.y());
+				QMouseEvent press(QEvent::MouseButtonPress, QPointF(start), QPointF(vp->mapToGlobal(start)),
+						  Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+				QCoreApplication::sendEvent(vp, &press);
+				QMouseEvent move(QEvent::MouseMove, QPointF(out), QPointF(vp->mapToGlobal(out)), Qt::NoButton,
+						 Qt::LeftButton, Qt::NoModifier);
+				QCoreApplication::sendEvent(vp, &move);
+				pump(150);
+				expect(dock.isDetached(P::Overview), "dragging a tab off the rail detaches it");
+				QMouseEvent release(QEvent::MouseButtonRelease, QPointF(out), QPointF(vp->mapToGlobal(out)),
+						    Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+				QCoreApplication::sendEvent(vp, &release);
+				dock.reattachAll();
+				pump(100);
+			}
+
 			// A refused dock (no OBS) leaves the tab where it was.
 			se::ExplorerDock::setDockHost({[](const QString &, const QString &, QWidget *) { return false; },
 						       [](const QString &) {}});
@@ -490,6 +528,80 @@ int main(int argc, char **argv)
 			expect(p.rowCount(se::FilterSection::Effect) == 0, "audio input shows no effect rows");
 		}
 
+		// Group and Scene tabs only exist when there is a group or scene to show.
+		{
+			se::FiltersPanel p;
+			p.show();
+			p.setContext(srcB, nullptr, nullptr);
+			pump(200);
+			if (auto *tb = p.findChild<QTabBar *>())
+				expect(tb->isTabVisible(0) && !tb->isTabVisible(1) && !tb->isTabVisible(2),
+				       "Group and Scene filter tabs are hidden when they do not apply");
+			p.setContext(srcB, nullptr, srcA);
+			pump(200);
+			if (auto *tb = p.findChild<QTabBar *>())
+				expect(tb->isTabVisible(2), "the Scene tab appears when there is a scene");
+			// Reset UI reopens a collapsed section.
+			for (auto *b : p.findChildren<QToolButton *>())
+				if (b->isCheckable() && b->text().contains("Effect"))
+					b->setChecked(false);
+			p.resetLayout();
+			bool allOpen = true;
+			for (auto *b : p.findChildren<QToolButton *>())
+				if (b->isCheckable() && (b->text().contains("Effect") || b->text().contains("Audio")))
+					allOpen = allOpen && b->isChecked();
+			expect(allOpen, "Reset UI reopens collapsed filter sections");
+		}
+
+		// Dragging a filter near the top or bottom edge of the panel scrolls it.
+		{
+			QScrollArea area;
+			area.resize(300, 200);
+			auto *inner = new QWidget;
+			auto *lay = new QVBoxLayout(inner);
+			auto *list = new se::ReorderListWidget;
+			for (int i = 0; i < 40; ++i)
+				list->addItem(QString("row %1").arg(i));
+			list->setFixedHeight(900);
+			lay->addWidget(list);
+			area.setWidget(inner);
+			area.setWidgetResizable(true);
+			area.show();
+			pump(100);
+			const int before = area.verticalScrollBar()->value();
+			const QPoint nearBottom = area.viewport()->mapToGlobal(QPoint(50, area.viewport()->height() - 5));
+			for (int i = 0; i < 5; ++i)
+				list->scrollParentTowards(nearBottom);
+			expect(area.verticalScrollBar()->value() > before, "dragging near the bottom edge scrolls the panel down");
+			const int mid = area.verticalScrollBar()->value();
+			const QPoint nearTop = area.viewport()->mapToGlobal(QPoint(50, 5));
+			for (int i = 0; i < 5; ++i)
+				list->scrollParentTowards(nearTop);
+			expect(area.verticalScrollBar()->value() < mid, "dragging near the top edge scrolls it up");
+		}
+
+		// A source edited directly (an item's private transition uses this): its properties render and
+		// it offers no command copier, because it has no name obs-websocket could address.
+		{
+			obs_source_t *direct = obs_source_create_private("smoke_fx", "Direct", nullptr);
+			se::PropertiesPanel panel(se::PropertiesPanel::Mode::Embedded, nullptr);
+			panel.resize(400, 300);
+			panel.show();
+			panel.setTarget(direct);
+			pump(600);
+			bool hasField = !panel.findChildren<QCheckBox *>().isEmpty(); // the "Smoke On" checkbox
+			for (auto *l : panel.findChildren<QLabel *>())
+				hasField = hasField && (l->text() != "That filter no longer exists.");
+			expect(hasField, "a directly edited source shows its properties");
+			int menus = 0;
+			for (QWidget *w : panel.findChildren<QWidget *>())
+				menus += w->contextMenuPolicy() == Qt::CustomContextMenu ? 1 : 0;
+			// Right-clicking must not crash even though the providers return nothing.
+			openAllMenus(&panel);
+			obs_source_release(direct);
+			(void)menus;
+		}
+
 		stage("filters: pop-out windows and the quick-access close button");
 		{
 			auto &pops = se::FilterPopouts::instance();
@@ -506,7 +618,7 @@ int main(int argc, char **argv)
 			pump(150);
 			QToolButton *close = nullptr;
 			for (auto *b : bar.findChildren<QToolButton *>())
-				if (b->text().startsWith("Close filter windows"))
+				if (b->text().startsWith("Close all filter windows"))
 					close = b;
 			expect(close != nullptr, "quick-access bar offers 'close filter windows'");
 			if (close)
