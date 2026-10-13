@@ -241,9 +241,8 @@ FiltersPanel::FiltersPanel(QWidget *parent) : QWidget(parent)
 		return r;
 	};
 	auto *row1 = makeRow();
-	addButton_ = new QToolButton(this);
+	addButton_ = new QPushButton(this);
 	addButton_->setText(tr("+ Add"));
-	addButton_->setPopupMode(QToolButton::InstantPopup);
 	auto *addMenu = new QMenu(addButton_);
 	addButton_->setMenu(addMenu);
 	connect(addMenu, &QMenu::aboutToShow, this, &FiltersPanel::rebuildAddMenu);
@@ -257,9 +256,8 @@ FiltersPanel::FiltersPanel(QWidget *parent) : QWidget(parent)
 	row1->addStretch(1);
 
 	auto *row2 = makeRow();
-	copyButton_ = new QToolButton(this);
+	copyButton_ = new QPushButton(this);
 	copyButton_->setText(tr("Copy"));
-	copyButton_->setPopupMode(QToolButton::InstantPopup);
 	auto *copyMenu = new QMenu(copyButton_);
 	copyMenu->addAction(tr("Copy selected filter"), this, [this] { copyFilters(false); });
 	copyMenu->addAction(tr("Copy all filters on this tab"), this, [this] { copyFilters(true); });

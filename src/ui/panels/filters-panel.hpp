@@ -106,8 +106,8 @@ private:
 	QTabBar *tabs_ = nullptr;
 	QLineEdit *search_ = nullptr;
 	SectionUi sections_[2]; // [0] Audio/Video, [1] Effect
-	QToolButton *addButton_ = nullptr;
-	QToolButton *copyButton_ = nullptr;
+	QPushButton *addButton_ = nullptr;
+	QPushButton *copyButton_ = nullptr;
 	QPushButton *pasteButton_ = nullptr;
 	QPushButton *removeButton_ = nullptr;
 	QPushButton *upButton_ = nullptr;

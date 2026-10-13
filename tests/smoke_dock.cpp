@@ -344,6 +344,10 @@ int main(int argc, char **argv)
 
 			p.expandAll(true);
 			pump(900);
+			for (auto *l : p.findChildren<QListWidget *>())
+				if (l->count() > 0)
+					expect(l->item(0)->sizeHint().height() > 120 && l->height() > 240,
+					       "an expanded row (and its list) grows to fit the editor");
 			expect(p.findChildren<se::PropertiesPanel *>().size() == 2, "each expanded row hosts an inline editor");
 			expect(p.findChildren<QCheckBox *>().size() >= 4, "inline editors render their properties");
 			se::uiSettings().sync();
