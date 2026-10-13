@@ -71,20 +71,25 @@ QString colorCss(Rgba c)
 } // namespace
 
 // ---------------------------------------------------------------------------
-PropertiesPanel::PropertiesPanel(QWidget *parent) : QWidget(parent)
+PropertiesPanel::PropertiesPanel(Mode mode, QWidget *parent) : QWidget(parent), mode_(mode)
 {
 	auto *root = new QVBoxLayout(this);
-	targets_ = new QComboBox(this);
 	status_ = new QLabel(this);
 	status_->setWordWrap(true);
-	scroll_ = new QScrollArea(this);
-	scroll_->setWidgetResizable(true);
-	scroll_->setFrameShape(QFrame::NoFrame);
-	root->addWidget(targets_);
-	root->addWidget(status_);
-	root->addWidget(scroll_, 1);
-
-	connect(targets_, &QComboBox::currentIndexChanged, this, &PropertiesPanel::onTargetChanged);
+	if (mode_ == Mode::Full) {
+		targets_ = new QComboBox(this);
+		scroll_ = new QScrollArea(this);
+		scroll_->setWidgetResizable(true);
+		scroll_->setFrameShape(QFrame::NoFrame);
+		root->addWidget(targets_);
+		root->addWidget(status_);
+		root->addWidget(scroll_, 1);
+		connect(targets_, &QComboBox::currentIndexChanged, this, &PropertiesPanel::onTargetChanged);
+	} else {
+		root->setContentsMargins(0, 0, 0, 0);
+		embeddedLayout_ = root;
+		root->addWidget(status_);
+	}
 
 	poll_ = new QTimer(this);
 	poll_->setInterval(500);
@@ -115,6 +120,8 @@ std::vector<std::string> PropertiesPanel::filterNames() const
 
 bool PropertiesPanel::rebuildTargets(bool keepSelection)
 {
+	if (mode_ == Mode::Embedded)
+		return false;
 	const auto names = filterNames();
 	std::string sig = source_ ? str(obs_source_get_name(source_.get())) : "";
 	for (const auto &n : names)
@@ -145,6 +152,13 @@ void PropertiesPanel::setSource(obs_source_t *source)
 		return;
 	source_ = obs::retain(source);
 	rebuildTargets(false);
+	rebuildForm();
+}
+
+void PropertiesPanel::setFilter(obs_source_t *source, const std::string &filterName)
+{
+	source_ = obs::retain(source);
+	embeddedFilter_ = filterName;
 	rebuildForm();
 }
 
@@ -192,14 +206,23 @@ void PropertiesPanel::rebuildForm()
 	++gen_; // invalidates callbacks of every widget built before this point
 	building_ = true;
 
-	const int scrollPos = scroll_->verticalScrollBar()->value();
+	const int scrollPos = scroll_ ? scroll_->verticalScrollBar()->value() : 0;
 	props_.reset();
 	settings_.reset();
 	target_.reset();
 
 	// Detach (and thereby delete) the old form before building the new one.
-	content_ = new QWidget;
-	scroll_->setWidget(content_);
+	if (scroll_) {
+		content_ = new QWidget;
+		scroll_->setWidget(content_);
+	} else {
+		if (content_) {
+			content_->hide();
+			content_->deleteLater();
+		}
+		content_ = new QWidget(this);
+		embeddedLayout_->addWidget(content_);
+	}
 
 	auto finish = [this](const QString &msg) {
 		status_->setText(msg);
@@ -210,8 +233,15 @@ void PropertiesPanel::rebuildForm()
 	if (!source_)
 		return finish(tr("Select a source."));
 
-	const int idx = targets_->currentIndex();
-	const QString filterName = idx > 0 ? targets_->currentData().toString() : QString();
+	QString filterName;
+	if (mode_ == Mode::Embedded) {
+		filterName = QString::fromStdString(embeddedFilter_);
+	} else {
+		const int idx = targets_->currentIndex();
+		filterName = idx > 0 ? targets_->currentData().toString() : QString();
+	}
+	if (filterName.isEmpty() && mode_ == Mode::Embedded)
+		return finish(tr("That filter no longer exists."));
 	if (filterName.isEmpty())
 		target_ = obs::retain(source_.get());
 	else
@@ -229,7 +259,8 @@ void PropertiesPanel::rebuildForm()
 	lastJson_ = settingsJson();
 	finish(QString());
 
-	QTimer::singleShot(0, this, [this, scrollPos] { scroll_->verticalScrollBar()->setValue(scrollPos); });
+	if (scroll_)
+		QTimer::singleShot(0, this, [this, scrollPos] { scroll_->verticalScrollBar()->setValue(scrollPos); });
 }
 
 // ---------------------------------------------------------------------------

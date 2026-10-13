@@ -16,6 +16,8 @@
 #include "core/obs-event-bridge.hpp"
 #include "ui/context-bar.hpp"
 #include "ui/explorer-dock.hpp"
+#include "ui/filter-clipboard.hpp"
+#include "ui/filter-popouts.hpp"
 #include "ui/panels/audio-panel.hpp"
 #include "ui/panels/filters-panel.hpp"
 #include "ui/panels/misc-panel.hpp"
@@ -25,17 +27,26 @@
 #include "ui/panels/transform-panel.hpp"
 #include "ui/quick-access-bar.hpp"
 #include "ui/source-tree-drawer.hpp"
+#include "util/plugin-config.hpp"
 
 #include <obs-frontend-api.h>
 #include <obs.h>
+#include <util/bmem.h>
 
 #include <QAbstractButton>
 #include <QApplication>
+#include <QCheckBox>
 #include <QContextMenuEvent>
+#include <QDir>
 #include <QElapsedTimer>
+#include <QFile>
+#include <QLineEdit>
 #include <QListWidget>
+#include <QSettings>
+#include <QTabBar>
 #include <QThread>
 #include <QTimer>
+#include <QToolButton>
 
 #include <cstdio>
 
@@ -43,6 +54,73 @@ namespace {
 
 int g_menusOpened = 0;
 int g_buttonsClicked = 0;
+int g_failures = 0;
+
+void expect(bool ok, const char *what)
+{
+	if (!ok) {
+		++g_failures;
+		std::fprintf(stderr, "[smoke] FAILED: %s\n", what);
+	}
+}
+
+// Test-only source types, so the filter UI has real filters to work on without loading OBS's plugins.
+// "smoke_fx" is an effect filter, "smoke_av" an audio filter (libobs marks those async), "smoke_mic"
+// an audio input to put audio filters on.
+void registerTestSources()
+{
+	auto props = [](void *) -> obs_properties_t * {
+		obs_properties_t *p = obs_properties_create();
+		obs_properties_add_bool(p, "on", "Smoke On");
+		obs_properties_add_int_slider(p, "amount", "Smoke Amount", 0, 100, 1);
+		obs_properties_add_text(p, "label", "Smoke Label", OBS_TEXT_DEFAULT);
+		return p;
+	};
+	auto create = [](obs_data_t *, obs_source_t *) -> void * { return bzalloc(1); };
+	auto destroy = [](void *p) { bfree(p); };
+
+	obs_source_info fx = {};
+	fx.id = "smoke_fx";
+	fx.type = OBS_SOURCE_TYPE_FILTER;
+	fx.output_flags = OBS_SOURCE_VIDEO;
+	fx.get_name = [](void *) { return "Smoke Effect"; };
+	fx.create = create;
+	fx.destroy = destroy;
+	fx.get_properties = props;
+	obs_register_source(&fx);
+
+	obs_source_info av = fx;
+	av.id = "smoke_av";
+	av.output_flags = OBS_SOURCE_AUDIO;
+	av.get_name = [](void *) { return "Smoke Audio"; };
+	obs_register_source(&av);
+
+	obs_source_info mic = {};
+	mic.id = "smoke_mic";
+	mic.type = OBS_SOURCE_TYPE_INPUT;
+	mic.output_flags = OBS_SOURCE_AUDIO;
+	mic.get_name = [](void *) { return "Smoke Mic"; };
+	mic.create = create;
+	mic.destroy = destroy;
+	obs_register_source(&mic);
+}
+
+bool addTestFilter(obs_source_t *parent, const char *kind, const char *name)
+{
+	obs_source_t *f = obs_source_create_private(kind, name, nullptr);
+	if (!f)
+		return false;
+	obs_source_filter_add(parent, f);
+	obs_source_release(f);
+	return true;
+}
+
+bool hasFilter(obs_source_t *parent, const char *name)
+{
+	obs_source_t *f = obs_source_get_filter_by_name(parent, name);
+	obs_source_release(f);
+	return f != nullptr;
+}
 
 void stage(const char *what)
 {
@@ -56,6 +134,8 @@ void pump(int ms)
 	t.start();
 	while (t.elapsed() < ms) {
 		QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
+		// There is no running event loop here, so deleteLater() would otherwise never be honoured.
+		QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
 		QThread::msleep(5);
 	}
 }
@@ -81,6 +161,8 @@ void openAllMenus(QWidget *root)
 	QObject::connect(&closer, &QTimer::timeout, [] {
 		if (QWidget *popup = QApplication::activePopupWidget())
 			popup->close();
+		if (QWidget *modal = QApplication::activeModalWidget())
+			modal->close();
 	});
 	closer.start();
 
@@ -115,12 +197,19 @@ int main(int argc, char **argv)
 	qputenv("QT_QPA_PLATFORM", qgetenv("QT_QPA_PLATFORM").isEmpty() ? QByteArray("minimal") : qgetenv("QT_QPA_PLATFORM"));
 	QApplication app(argc, argv);
 
+	// Start from an empty plugin config folder so a previous run cannot change what is shown.
+	if (const QString dir = qEnvironmentVariable("SE_CONFIG_DIR"); !dir.isEmpty())
+		QDir(dir).removeRecursively();
+
 	// Some buttons open popup menus (the Transform popup, right-click menus). Close any that appear.
 	QTimer popupCloser;
 	popupCloser.setInterval(15);
 	QObject::connect(&popupCloser, &QTimer::timeout, [] {
 		if (QWidget *popup = QApplication::activePopupWidget())
 			popup->close();
+		// "Reset all" asks first; closing the dialog answers "no".
+		if (QWidget *modal = QApplication::activeModalWidget())
+			modal->close();
 	});
 	popupCloser.start();
 
@@ -129,6 +218,8 @@ int main(int argc, char **argv)
 		std::fprintf(stderr, "obs_startup failed (is OBS's bin directory on PATH?)\n");
 		return 2;
 	}
+
+	registerTestSources();
 
 	// Two throwaway scenes; B is an item inside A, which gives every panel a real scene item.
 	obs_scene_t *sceneA = obs_scene_create("Smoke A");
@@ -215,6 +306,130 @@ int main(int argc, char **argv)
 		p.setContext(info);
 	});
 
+	// ---- the Filters tab, with real filters ------------------------------------------------
+	{
+		stage("filters: sections, search, inline editors, persistence");
+		obs_source_t *mic = obs_source_create_private("smoke_mic", "Smoke Mic", nullptr);
+		expect(mic != nullptr, "test audio input could be created");
+		expect(addTestFilter(srcB, "smoke_fx", "Look A") && addTestFilter(srcB, "smoke_fx", "Look B"),
+		       "effect filters added to the scene");
+		expect(addTestFilter(mic, "smoke_av", "Gain") && addTestFilter(mic, "smoke_av", "Gate"),
+		       "audio filters added to the input");
+		expect((obs_get_source_output_flags("smoke_av") & OBS_SOURCE_ASYNC) != 0,
+		       "libobs marks audio filters async (the section rule depends on it)");
+
+		{
+			// The panel reopens on the last tab used; make that the Source tab for these checks.
+			se::uiSettings().setValue("filters/lastTab", 0);
+			se::FiltersPanel p;
+			p.resize(500, 700);
+			p.show();
+			p.setContext(srcB, nullptr, srcA);
+			pump(700);
+			expect(p.rowCount(se::FilterSection::Effect) == 2, "scene shows 2 effect rows");
+			expect(p.rowCount(se::FilterSection::AudioVideo) == 0, "scene shows no audio/video rows");
+
+			auto *search = p.findChild<QLineEdit *>();
+			expect(search != nullptr, "search box exists");
+			if (search) {
+				search->setText("zzz");
+				expect(p.rowCount(se::FilterSection::Effect) == 0, "search with no match hides every row");
+				search->setText("look a");
+				expect(p.rowCount(se::FilterSection::Effect) == 1, "search narrows to one row");
+				search->setText("smoke effect"); // matches the filter TYPE name too
+				expect(p.rowCount(se::FilterSection::Effect) == 2, "search matches the type name");
+				search->clear();
+				expect(p.rowCount(se::FilterSection::Effect) == 2, "clearing search restores rows");
+			}
+
+			p.expandAll(true);
+			pump(900);
+			expect(p.findChildren<se::PropertiesPanel *>().size() == 2, "each expanded row hosts an inline editor");
+			expect(p.findChildren<QCheckBox *>().size() >= 4, "inline editors render their properties");
+			se::uiSettings().sync();
+			const QString key = QString("filters/expanded/%1").arg(obs_source_get_uuid(srcB));
+			expect(se::uiSettings().value(key).toStringList().size() == 2, "expanded rows are remembered");
+			p.expandAll(false);
+			pump(300);
+			expect(p.findChildren<se::PropertiesPanel *>().isEmpty(), "collapsing removes the inline editors");
+			expect(se::uiSettings().value(key).toStringList().isEmpty(), "collapsed state is remembered");
+
+			p.setContext(mic, nullptr, nullptr);
+			pump(700);
+			expect(p.rowCount(se::FilterSection::AudioVideo) == 2, "audio input shows 2 audio rows");
+			expect(p.rowCount(se::FilterSection::Effect) == 0, "audio input shows no effect rows");
+		}
+
+		stage("filters: pop-out windows and the quick-access close button");
+		{
+			auto &pops = se::FilterPopouts::instance();
+			pops.open(srcB, "Look A");
+			pops.open(srcB, "Look A"); // second open raises the same window
+			pops.open(srcB, "Look B");
+			pump(200);
+			expect(pops.count() == 2, "two distinct pop-out windows");
+
+			se::QuickAccessBar bar;
+			bar.resize(500, 80);
+			bar.show();
+			bar.setTarget(item, srcB);
+			pump(150);
+			QToolButton *close = nullptr;
+			for (auto *b : bar.findChildren<QToolButton *>())
+				if (b->text().startsWith("Close filter windows"))
+					close = b;
+			expect(close != nullptr, "quick-access bar offers 'close filter windows'");
+			if (close)
+				close->click();
+			pump(200);
+			expect(pops.count() == 0, "the close button closes every pop-out window");
+
+			pops.open(srcB, "Look A");
+			pump(100);
+			obs_source_t *gone = obs_source_get_filter_by_name(srcB, "Look A");
+			obs_source_filter_remove(srcB, gone);
+			obs_source_release(gone);
+			pump(1500);
+			expect(pops.count() == 0, "a pop-out closes itself when its filter is removed");
+			expect(addTestFilter(srcB, "smoke_fx", "Look A"), "filter re-added");
+
+			pops.open(srcB, "Look B");
+			pump(100);
+			if (auto *bridge = pops.findChild<se::ObsEventBridge *>())
+				bridge->frontendEvent(int(OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGING));
+			pump(100);
+			expect(pops.count() == 0, "pop-outs close when the scene collection changes");
+		}
+
+		stage("filters: copy and paste");
+		{
+			obs_source_t *look = obs_source_get_filter_by_name(srcB, "Look A");
+			se::writeFilterClipboard({se::snapshotFilter(look)});
+			obs_source_release(look);
+			expect(QFile::exists(se::configFile("filter-clipboard.json")), "the clipboard is saved to disk");
+			expect(!se::filterClipboardEmpty(), "clipboard has the copied filter");
+
+			auto r = se::pasteFilters(srcA, se::readFilterClipboard());
+			expect(r.pasted == 1 && hasFilter(srcA, "Look A"), "effect filter pasted onto another scene");
+			r = se::pasteFilters(srcA, se::readFilterClipboard());
+			expect(r.pasted == 1 && hasFilter(srcA, "Look A 2"), "pasting again picks a unique name");
+
+			obs_source_t *gain = obs_source_get_filter_by_name(mic, "Gain");
+			r = se::pasteFilters(srcA, {se::snapshotFilter(gain)});
+			obs_source_release(gain);
+			expect(r.pasted == 0 && r.skipped == 1, "an audio filter is refused on a scene (no audio)");
+		}
+
+		// With real filters in place, run the generic click-everything / right-click-everything pass too.
+		exercise<se::FiltersPanel>("FiltersPanel (scene with filters)",
+					   [&](se::FiltersPanel &p) { p.setContext(srcB, nullptr, srcA); });
+		exercise<se::FiltersPanel>("FiltersPanel (audio input)",
+					   [&](se::FiltersPanel &p) { p.setContext(mic, nullptr, nullptr); });
+		se::FilterPopouts::instance().closeAll();
+		pump(100);
+		obs_source_release(mic);
+	}
+
 	// Releasing a scene that sits inside another scene makes libobs itself log "Double destroy just
 	// occurred". A control program using libobs alone, with none of this plugin's code, prints it
 	// too, so it is not a reference-count bug here and can be ignored.
@@ -229,6 +444,10 @@ int main(int argc, char **argv)
 	if (g_buttonsClicked < 30 || g_menusOpened < 30) {
 		std::fprintf(stderr, "too little was exercised (buttons %d, menus %d)\n", g_buttonsClicked, g_menusOpened);
 		return 4;
+	}
+	if (g_failures) {
+		std::fprintf(stderr, "[smoke] %d check(s) failed\n", g_failures);
+		return 5;
 	}
 	std::puts("[smoke] OK");
 	return 0;

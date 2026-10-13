@@ -16,6 +16,7 @@ class QFormLayout;
 class QLabel;
 class QScrollArea;
 class QTimer;
+class QVBoxLayout;
 
 namespace se {
 
@@ -28,10 +29,18 @@ struct CommandSet;
 class PropertiesPanel final : public QWidget {
 	Q_OBJECT
 public:
-	explicit PropertiesPanel(QWidget *parent = nullptr);
+	// Full: target picker (source or any of its filters) in a scroll area, as the Properties tab.
+	// Embedded: shows exactly one filter of one source, with no picker or scroll area, so it can be
+	// dropped inline into another layout (a filter row, a pop-out window).
+	enum class Mode { Full, Embedded };
+
+	explicit PropertiesPanel(QWidget *parent = nullptr) : PropertiesPanel(Mode::Full, parent) {}
+	PropertiesPanel(Mode mode, QWidget *parent);
 	~PropertiesPanel() override;
 
 	void setSource(obs_source_t *source); // nullptr clears
+	// Embedded mode: the filter called `filterName` on `source`.
+	void setFilter(obs_source_t *source, const std::string &filterName);
 
 private slots:
 	void poll();
@@ -67,8 +76,11 @@ private:
 	std::string targetsSignature_;
 	unsigned gen_ = 0; // bumped on every rebuild; stale widget callbacks compare against it
 	bool building_ = false;
+	Mode mode_ = Mode::Full;
+	std::string embeddedFilter_;
 
 	QComboBox *targets_ = nullptr;
+	QVBoxLayout *embeddedLayout_ = nullptr; // Embedded mode only: where content_ lives
 	QLabel *status_ = nullptr;
 	QScrollArea *scroll_ = nullptr;
 	QWidget *content_ = nullptr;

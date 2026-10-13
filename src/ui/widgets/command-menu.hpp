@@ -32,6 +32,10 @@ struct CommandSet {
 	std::function<std::string()> wsGet;       // Copy OBS WebSocket v5 (Get)
 	std::function<void()> reset;              // Reset to Default
 
+	// Optional plain actions (label, action) that are not copies, e.g. "Pop out into a window".
+	// Shown first, above the copy entries.
+	std::vector<std::pair<std::string, std::function<void()>>> actions;
+
 	// Optional additional copy entries (label, generator), shown after "Get".
 	std::vector<std::pair<std::string, std::function<std::string()>>> extras;
 

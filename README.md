@@ -20,16 +20,21 @@ It is an independent, from-scratch implementation inspired by the StreamUP Sourc
 - **Source tree drawer**: scenes, groups and items with live show/lock toggles, search, and the global audio devices.
 - **Command copier**: right-click a field for its command, or a label for combined commands (position X+Y,
   size, full transform, full payload...). Each offers Streamer.bot C#, obs-websocket Set and Get, plus Reset.
+- **Filters tab** laid out like OBS's own dialog (Audio/Video and Effect lists, tabs for the source, its group
+  and its scene): enable checkbox, drag or Move up/down, search by name or type, Add menu limited to filters
+  the source can take, **inline property editors** (expand a row), **pop out** any filter into its own window
+  (a quick-access button closes them all), copy/paste filters between sources (kept across restarts), and
+  expanded rows and the last tab remembered.
 - Canvas-aware transform maths (any canvas shape, rotation, flips, crop, bounding boxes) with unit tests.
 
 ## Status
 
-Done: everything above, plus copy/paste transform, the Source and Misc tabs, Pin, and filter reorder by drag.
+Done: everything above, plus copy/paste transform, the Source and Misc tabs, and Pin.
 
 Not done yet (compared with the StreamUP docs):
 
-- Filters tab: Audio/Video vs Effect sections, copy/paste of filters (and OBS's filter clipboard), search,
-  expand/collapse, inline property editors per filter, popped-out filter windows.
+- Filters: sharing OBS's own filter clipboard (it lives inside OBS's main window and has no public API, so
+  this plugin keeps its own).
 - Detachable tabs.
 - Source picker dialog and the tree's type / filter / visibility filters.
 - obs-websocket has no requests for scale filtering or deinterlacing, so those two fields cannot copy a command.

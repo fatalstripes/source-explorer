@@ -29,6 +29,8 @@ std::vector<QuickButton> quickButtonsFor(const SourceTraits &t)
 		out.push_back(QuickButton::MediaStop);
 		out.push_back(QuickButton::MediaRestart);
 	}
+	if (t.openFilterWindows > 0)
+		out.push_back(QuickButton::CloseFilterWindows);
 	return out;
 }
 

@@ -38,6 +38,7 @@ static std::string names(const std::vector<QB> &v)
 		case QB::MediaPlayPause: s += "PlayPause,"; break;
 		case QB::MediaStop: s += "Stop,"; break;
 		case QB::MediaRestart: s += "Restart,"; break;
+		case QB::CloseFilterWindows: s += "CloseFilters,"; break;
 		}
 	}
 	return s;
@@ -77,6 +78,12 @@ int main()
 	SourceTraits mic;
 	mic.hasAudio = true;
 	EQ(names(quickButtonsFor(mic)), "Shot,Reset,Pin,Mute,Mon,");
+
+	// Open filter pop-out windows add a close button at the end, for any kind of source.
+	SourceTraits withWindows = image;
+	withWindows.openFilterWindows = 2;
+	EQ(names(quickButtonsFor(withWindows)), "Vis,Lock,Shot,Reset,Pin,Transform,CloseFilters,");
+	EQ(names(quickButtonsFor([] { SourceTraits t; t.openFilterWindows = 1; return t; }())), "Shot,Reset,Pin,CloseFilters,");
 
 	// Monitoring cycles through all three states and returns to the start.
 	EQ(monitorTypeName(nextMonitorType(MonitorType::None)), "OBS_MONITORING_TYPE_MONITOR_ONLY");

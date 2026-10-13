@@ -2,6 +2,7 @@
 #include "ui/quick-access-bar.hpp"
 
 #include "core/scene-item-ops.hpp"
+#include "ui/filter-popouts.hpp"
 #include "ui/widgets/command-menu.hpp"
 #include "ui/widgets/flow-layout.hpp"
 
@@ -40,6 +41,15 @@ QuickAccessBar::QuickAccessBar(QWidget *parent) : QWidget(parent)
 	flow_ = new FlowLayout(this, 4);
 	setLayout(flow_);
 	setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
+	traits_.openFilterWindows = FilterPopouts::instance().count();
+	connect(&FilterPopouts::instance(), &FilterPopouts::countChanged, this, [this](int n) {
+		const bool changed = (n > 0) != (traits_.openFilterWindows > 0);
+		traits_.openFilterWindows = n;
+		if (changed)
+			rebuild();
+		else if (auto it = buttons_.find(QuickButton::CloseFilterWindows); it != buttons_.end())
+			it->second->setText(tr("Close filter windows (%1)").arg(n));
+	});
 	rebuild();
 }
 
@@ -66,6 +76,7 @@ void QuickAccessBar::setTarget(obs_sceneitem_t *item, obs_source_t *source)
 
 	SourceTraits t;
 	t.hasItem = item != nullptr;
+	t.openFilterWindows = traits_.openFilterWindows;
 	if (source) {
 		const uint32_t flags = obs_source_get_output_flags(source);
 		const char *id = obs_source_get_id(source);
@@ -253,6 +264,12 @@ void QuickAccessBar::rebuild()
 				if (self && self->source_)
 					obs_source_media_stop(self->source_.get());
 			});
+			break;
+		}
+		case QuickButton::CloseFilterWindows: {
+			auto *b = addButton(kind, tr("Close filter windows (%1)").arg(traits_.openFilterWindows),
+					    tr("Close every filter window that was popped out of the Filters tab"), false);
+			connect(b, &QToolButton::clicked, this, [] { FilterPopouts::instance().closeAll(); });
 			break;
 		}
 		case QuickButton::MediaRestart: {

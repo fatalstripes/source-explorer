@@ -22,6 +22,7 @@ enum class QuickButton {
 	MediaPlayPause,
 	MediaStop,
 	MediaRestart,
+	CloseFilterWindows, // only while filter pop-out windows are open
 };
 
 // What the loaded source is and can do. Decided once per source, not per tick.
@@ -31,6 +32,7 @@ struct SourceTraits {
 	bool isBrowser = false;
 	bool hasActivateButton = false; // the source exposes an "activate" button property
 	bool isMedia = false;           // controllable media (play/pause/stop/restart)
+	int openFilterWindows = 0;      // filter pop-out windows currently open (any source)
 };
 
 // The buttons to show, in display order. Visibility, Lock, Screenshot, Reset UI and Pin come first

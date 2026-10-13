@@ -21,6 +21,10 @@ static void showMenu(QWidget *anchor, const QPoint &pos, const std::function<std
 			return;
 		menu.addAction(text, [gen] { util::copyToClipboard(gen()); });
 	};
+	for (const auto &[label, action] : cmds->actions)
+		menu.addAction(QString::fromStdString(label), [action] { action(); });
+	if (!cmds->actions.empty())
+		menu.addSeparator();
 	add(QObject::tr("Copy Streamer.Bot C# Command"), cmds->streamerBot);
 	add(QObject::tr("Copy OBS WebSocket v5 (Set)"), cmds->wsSet);
 	add(QObject::tr("Copy OBS WebSocket v5 (Get)"), cmds->wsGet);

@@ -18,6 +18,7 @@ add_library(se-payload STATIC
     src/core/payload-generator.cpp
     src/core/transform-math.cpp
     src/core/tree-model.cpp
+    src/core/filter-rules.cpp
     src/core/quick-access.cpp)
 target_include_directories(se-payload PUBLIC src)
 if(MSVC)
@@ -28,7 +29,7 @@ endif()
 
 if(SE_BUILD_TESTS)
     enable_testing()
-    foreach(t payload_generator transform_math filter_requests properties_support source_tree frame_fit quick_access)
+    foreach(t payload_generator transform_math filter_requests properties_support source_tree frame_fit quick_access filter_rules)
         add_executable(test_${t} tests/test_${t}.cpp)
         target_link_libraries(test_${t} PRIVATE se-payload)
         add_test(NAME ${t} COMMAND test_${t})
@@ -60,6 +61,10 @@ if(SE_BUILD_PLUGIN)
         src/ui/dock-style.hpp
         src/ui/explorer-dock.cpp
         src/ui/explorer-dock.hpp
+        src/ui/filter-clipboard.cpp
+        src/ui/filter-clipboard.hpp
+        src/ui/filter-popouts.cpp
+        src/ui/filter-popouts.hpp
         src/ui/scene-switch.cpp
         src/ui/scene-switch.hpp
         src/ui/source-tree-drawer.cpp
@@ -92,7 +97,9 @@ if(SE_BUILD_PLUGIN)
         src/core/obs-event-bridge.cpp
         src/core/obs-event-bridge.hpp
         src/util/clipboard.cpp
-        src/util/clipboard.hpp)
+        src/util/clipboard.hpp
+        src/util/plugin-config.cpp
+        src/util/plugin-config.hpp)
     target_link_libraries(se-ui PUBLIC
         se-payload
         OBS::libobs
@@ -124,7 +131,7 @@ if(SE_BUILD_PLUGIN)
         add_test(NAME smoke_dock COMMAND smoke_dock)
         set_tests_properties(smoke_dock PROPERTIES
             TIMEOUT 120
-            ENVIRONMENT "QT_QPA_PLATFORM=minimal;QT_PLUGIN_PATH=${SE_OBS_SDK_DIR}/qt6/plugins"
+            ENVIRONMENT "QT_QPA_PLATFORM=minimal;QT_PLUGIN_PATH=${SE_OBS_SDK_DIR}/qt6/plugins;SE_CONFIG_DIR=${CMAKE_BINARY_DIR}/smoke-config"
             ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${SE_OBS_BIN_DIR}")
     endif()
 endif()
