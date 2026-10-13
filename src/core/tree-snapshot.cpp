@@ -73,16 +73,19 @@ void collectItems(obs_scene_t *scene, const std::string &sceneName, const std::s
 	}
 }
 
-void deselectAll(obs_scene_t *scene, int depth = 0)
+// Every selection change fires signals that other plugins and scripts may react to, so only touch
+// items whose state actually has to change.
+void deselectAllExcept(obs_scene_t *scene, obs_sceneitem_t *keep, int depth = 0)
 {
 	if (!scene || depth > kMaxGroupDepth)
 		return;
 	ItemCollector c;
 	obs_scene_enum_items(scene, &ItemCollector::cb, &c);
 	for (auto &item : c.items) {
-		obs_sceneitem_select(item.get(), false);
+		if (item.get() != keep && obs_sceneitem_selected(item.get()))
+			obs_sceneitem_select(item.get(), false);
 		if (obs_sceneitem_is_group(item.get()))
-			deselectAll(obs_sceneitem_group_get_scene(item.get()), depth + 1);
+			deselectAllExcept(obs_sceneitem_group_get_scene(item.get()), keep, depth + 1);
 	}
 }
 
@@ -176,8 +179,9 @@ SelectResult selectSceneItem(const std::string &root, const std::string &sceneNa
 	auto target = findSceneItem(sceneName, itemId);
 	if (!target)
 		return r;
-	deselectAll(rootScene);
-	obs_sceneitem_select(target.get(), true);
+	deselectAllExcept(rootScene, target.get());
+	if (!obs_sceneitem_selected(target.get()))
+		obs_sceneitem_select(target.get(), true);
 	r.selected = true;
 	return r;
 }
