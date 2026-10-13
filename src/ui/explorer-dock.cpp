@@ -639,8 +639,14 @@ ExplorerDock::DockHost &dockHost()
 		h.add = [](const QString &id, const QString &title, QWidget *content) {
 			if (!obs_frontend_add_dock_by_id(id.toUtf8().constData(), title.toUtf8().constData(), content))
 				return false;
-			if (auto *wrapper = qobject_cast<QDockWidget *>(content->parentWidget()))
+			if (auto *wrapper = qobject_cast<QDockWidget *>(content->parentWidget())) {
 				new FloatingDockRescue(wrapper); // keep a floating dock's title bar reachable
+				// OBS adds a plugin's dock hidden (the user normally ticks it in the Docks menu), but
+				// the user just asked for this one, so show it.
+				wrapper->resize(std::max(wrapper->width(), 420), std::max(wrapper->height(), 520));
+				wrapper->show();
+				wrapper->raise();
+			}
 			return true;
 		};
 		h.remove = [](const QString &id) { obs_frontend_remove_dock(id.toUtf8().constData()); };
