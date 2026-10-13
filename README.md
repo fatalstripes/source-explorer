@@ -16,7 +16,7 @@ It is an independent, from-scratch implementation inspired by the StreamUP Sourc
   Scene > Group > Source status bar with a wrong-scene warning, and a quick-access bar that adapts to the
   source (visibility, lock, snapshot, pin, mute, monitoring, browser refresh, capture activate,
   transform popup, media controls).
-- **Tabs** that hide when they do not apply (Overview doubles as a welcome card with a Select a source button while nothing is loaded): Overview, Source, Transform, Audio, Filters, Properties, Misc.
+- **Tabs** that hide when they do not apply: Overview, Source, Transform, Audio, Filters, Properties, Misc. While nothing is loaded, Overview shows a welcome card with a **Select a source** button.
 - **Source tree drawer**: scenes, groups and items with live show/lock toggles, search, and the global audio devices. Expand all, collapse all and refresh, and the loaded source in green.
 - **Command copier**: right-click a field for its command, or a label for combined commands (position X+Y,
   size, full transform, full payload...). Each offers Streamer.bot C#, obs-websocket Set and Get, plus Reset.
@@ -26,7 +26,7 @@ It is an independent, from-scratch implementation inspired by the StreamUP Sourc
   (a quick-access button closes them all), copy/paste filters between sources (kept across restarts), and
   expanded rows and the last tab remembered.
 - **Detachable tabs**: right-click a tab in the rail and choose Detach to give it its own OBS dock (float it, put it on another monitor). The panel keeps following the selection, a Reattach button or Reset UI puts it back, and detached tabs are restored on the next start.
-- **Select a source dialog** (click the source name in the dock): the whole scene, group and source tree with name search, filters by source type and by filter type, visible-only, live-only and scenes-only toggles, expand/collapse, and the loaded source in green. OK loads a scene or global device, or selects the scene item in OBS.
+- **Select a source dialog** (click the source name in the dock): the whole scene, group and source tree with name search, filters by source type and by filter type, visible-only, live-only and scenes-only toggles, expand/collapse, and the loaded source in green. OK loads a scene or global device, selects the scene item in OBS, or, for an item in a scene that is not live, loads it pinned with an other-scene warning without touching OBS's scene.
 - Canvas-aware transform maths (any canvas shape, rotation, flips, crop, bounding boxes) with unit tests.
 
 ## Status
@@ -65,7 +65,7 @@ same OBS and Qt it runs in; the installer refuses any other combination.
 
 ## Installing
 
-Build the installer with `./installer/build-installer.ps1`, or install by hand: copy `source-explorer.dll` to
+Download the installer from the [Releases](../../releases) page, or build it with `./installer/build-installer.ps1`, or install by hand: copy `source-explorer.dll` to
 `%ProgramData%\obs-studio\plugins\source-explorer\bin\64bit\` with OBS closed, then enable the dock from
 OBS's **Docks** menu.
 
