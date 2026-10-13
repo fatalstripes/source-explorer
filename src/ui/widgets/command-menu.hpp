@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 // The "Command Copier": right-click menu offering Streamer.bot / obs-websocket
 // copies and Reset to Default for any widget.

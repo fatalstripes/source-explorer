@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 // Start-up smoke test for the dock UI.
 //
 // Builds the real dock and every panel against the real libobs (obs.dll from an installed OBS) on

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 // libobs stores colors as a 32-bit integer in 0xAABBGGRR order (R is the lowest
 // byte), held in an obs_data int (64-bit). Qt-free so it can be unit tested.

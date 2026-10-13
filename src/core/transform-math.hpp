@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 // Canvas-aware transform math (pure C++, no libobs). Works for any canvas
 // shape: landscape, vertical (1080x1920), ultrawide, etc.

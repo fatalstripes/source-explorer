@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 // Tests for core/frame-fit: keeping a floating dock usable and on screen.
 #include "core/frame-fit.hpp"
 

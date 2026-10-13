@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 // Tests for core/transform-math: canvas-aware center / fit.
 #include "core/transform-math.hpp"
 

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #include "ui/panels/overview-panel.hpp"
 
 #include "core/scene-item-ops.hpp"

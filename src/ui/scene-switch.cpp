@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #include "ui/scene-switch.hpp"
 
 #include <obs-frontend-api.h>

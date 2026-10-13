@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 // Qt-free rules for the quick-access bar and the status bar.
 #include "core/payload-generator.hpp"

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #include "ui/source-tree-drawer.hpp"
 
 #include "core/obs-raii.hpp"

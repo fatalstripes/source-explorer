@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 // Qt-free geometry for keeping a floating window usable and grabbable.
 #include <algorithm>

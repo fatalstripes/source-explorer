@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #include "ui/widgets/alignment-grid.hpp"
 
 #include "core/payload-generator.hpp"

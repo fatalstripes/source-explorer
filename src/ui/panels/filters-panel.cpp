@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #include "ui/panels/filters-panel.hpp"
 
 #include "core/list-reorder.hpp"

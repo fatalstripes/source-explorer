@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 // RAII wrappers for libobs reference-counted / owned handles.
 //

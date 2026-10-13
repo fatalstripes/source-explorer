@@ -65,5 +65,9 @@ OBS's **Docks** menu.
 
 ## License
 
-*Not yet chosen.* The plugin links against OBS Studio (GPL-2.0-or-later) and Qt (LGPL-3.0), so a binary
-release has to be offered with matching source under compatible terms.
+Copyright (C) 2026 the Source Explorer authors. Licensed under the **GNU General Public License, version 2 or
+(at your option) any later version** (SPDX: `GPL-2.0-or-later`); see [LICENSE](LICENSE).
+
+The plugin links against OBS Studio (GPL-2.0-or-later) and Qt (LGPL-3.0). "Or later" is what makes the
+combination with Qt's LGPL-3.0 allowable, so please keep it. Anyone you give a binary to is entitled to the
+matching source, which is this repository.

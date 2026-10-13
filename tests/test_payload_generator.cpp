@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 // Dependency-free tests for core/payload-generator. Exit code 0 == pass.
 #include "core/payload-generator.hpp"
 

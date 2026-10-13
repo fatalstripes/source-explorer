@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 // libobs glue between a scene item and the pure transform math. GUI thread only.
 // "plan*" functions only compute a patch (so the UI can copy it as a command);

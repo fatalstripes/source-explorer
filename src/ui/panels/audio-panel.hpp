@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 #include "core/obs-raii.hpp"
 #include "core/payload-generator.hpp"

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 // Tests for filter-management requests, raw JSON embedding and drop-index math.
 #include "core/list-reorder.hpp"
 #include "core/payload-generator.hpp"

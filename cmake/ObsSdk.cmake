@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Provides OBS::libobs and OBS::obs-frontend-api from a local SDK folder instead of
 # an installed/built OBS tree. Layout (see cmake/make-import-libs.ps1):
 #

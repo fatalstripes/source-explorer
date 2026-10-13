@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #include "ui/quick-access-bar.hpp"
 
 #include "core/scene-item-ops.hpp"

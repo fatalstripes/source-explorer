@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 // Index math for drag-and-drop reordering in a Qt item view.
 #include <algorithm>

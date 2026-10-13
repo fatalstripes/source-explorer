@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 // Tests for core/quick-access and the media / property-button requests behind the quick-access bar.
 #include "core/quick-access.hpp"
 

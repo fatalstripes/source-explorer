@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #include "core/obs-event-bridge.hpp"
 
 #include <obs-frontend-api.h>

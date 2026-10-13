@@ -46,7 +46,8 @@ IF SOMETHING GOES WRONG
 The plugin never changes your scenes or settings by itself; it only acts when you click.
 
 
-SOURCE CODE
------------
-Source Explorer links against OBS Studio (GPL-2.0-or-later) and Qt (LGPL-3.0). The source code of
-this build is available from the author on request.
+LICENSE AND SOURCE CODE
+-----------------------
+Source Explorer is free software, licensed under the GNU General Public License version 2 or (at your
+option) any later version. It links against OBS Studio (GPL-2.0-or-later) and Qt (LGPL-3.0).
+You are entitled to the source code of this build: ask the author, or see the project's GitHub page.

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #include "ui/panels/audio-panel.hpp"
 
 #include "ui/widgets/command-menu.hpp"

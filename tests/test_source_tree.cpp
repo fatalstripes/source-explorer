@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 // Tests for core/tree-model and the scene-tree websocket requests.
 #include "core/payload-generator.hpp"
 #include "core/tree-model.hpp"

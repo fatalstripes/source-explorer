@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 #pragma once
 // Pure C++ (no libobs / Qt) generator for the "Command Copier" feature.
 // Emits obs-websocket v5 request payloads and Streamer.bot C# snippets.

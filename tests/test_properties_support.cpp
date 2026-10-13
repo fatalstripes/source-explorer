@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 // Tests for the Properties panel's Qt-free support code.
 #include "core/color-util.hpp"
 #include "core/payload-generator.hpp"
