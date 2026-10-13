@@ -25,6 +25,7 @@ It is an independent, from-scratch implementation inspired by the StreamUP Sourc
   the source can take, **inline property editors** (expand a row), **pop out** any filter into its own window
   (a quick-access button closes them all), copy/paste filters between sources (kept across restarts), and
   expanded rows and the last tab remembered.
+- **Detachable tabs**: right-click a tab in the rail and choose Detach to give it its own OBS dock (float it, put it on another monitor). The panel keeps following the selection, a Reattach button or Reset UI puts it back, and detached tabs are restored on the next start.
 - Canvas-aware transform maths (any canvas shape, rotation, flips, crop, bounding boxes) with unit tests.
 
 ## Status
@@ -35,7 +36,7 @@ Not done yet (compared with the StreamUP docs):
 
 - Filters: sharing OBS's own filter clipboard (it lives inside OBS's main window and has no public API, so
   this plugin keeps its own).
-- Detachable tabs.
+- Dragging a tab out to detach it (right-click > Detach works).
 - Source picker dialog and the tree's type / filter / visibility filters.
 - obs-websocket has no requests for scale filtering or deinterlacing, so those two fields cannot copy a command.
 

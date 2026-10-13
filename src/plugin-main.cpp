@@ -31,6 +31,8 @@ static void onFrontendEvent(enum obs_frontend_event event, void *)
 	// A floating dock must always be grabbable: keep its title bar on screen and its size sane.
 	if (auto *wrapper = qobject_cast<QDockWidget *>(dock->parentWidget()))
 		new se::FloatingDockRescue(wrapper);
+	// Tabs that were detached last session come back as their own docks.
+	dock->restoreDetached();
 }
 
 bool obs_module_load(void)
@@ -43,4 +45,6 @@ void obs_module_unload(void)
 {
 	obs_frontend_remove_event_callback(onFrontendEvent, nullptr);
 	obs_frontend_remove_dock(kDockId);
+	for (const QString &id : se::ExplorerDock::detachedDockIds())
+		obs_frontend_remove_dock(id.toUtf8().constData());
 }

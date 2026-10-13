@@ -48,7 +48,10 @@
 #include <QTimer>
 #include <QToolButton>
 
+#include <QPointer>
+
 #include <cstdio>
+#include <map>
 
 namespace {
 
@@ -276,6 +279,65 @@ int main(int argc, char **argv)
 		}
 		bridge->frontendEvent(int(OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGING));
 		pump(300);
+
+		stage("detach and reattach tabs");
+		{
+			// Stand-in for OBS's dock machinery: each detached tab becomes a plain window.
+			std::map<QString, QPointer<QWidget>> hosts;
+			se::ExplorerDock::setDockHost({[&](const QString &id, const QString &, QWidget *w) {
+							       w->setWindowFlag(Qt::Window);
+							       w->show();
+							       hosts[id] = w;
+							       return true;
+						       },
+						       [&](const QString &id) {
+							       delete hosts[id].data();
+							       hosts.erase(id);
+						       }});
+			auto *rail = dock.findChild<QListWidget *>("seRail");
+			using P = se::ExplorerDock;
+
+			dock.detachPage(P::Transform);
+			dock.detachPage(P::Filters);
+			pump(300);
+			expect(dock.isDetached(P::Transform) && dock.isDetached(P::Filters), "tabs report detached");
+			expect(hosts.size() == 2, "each detached tab got its own dock");
+			expect(rail->item(P::Transform)->isHidden() && rail->item(P::Filters)->isHidden(),
+			       "detached tabs leave the rail");
+			se::uiSettings().sync();
+			expect(se::uiSettings().value("tabs/detached").toStringList().size() == 2,
+			       "detached tabs are remembered");
+			expect(!hosts["source-explorer-tab-filters"].isNull() &&
+				       hosts["source-explorer-tab-filters"]->findChild<se::FiltersPanel *>() != nullptr,
+			       "the Filters panel moved into its dock");
+
+			dock.reattachPage(P::Transform);
+			pump(200);
+			expect(!dock.isDetached(P::Transform) && hosts.size() == 1, "reattach removes the dock");
+			expect(dock.findChild<se::TransformPanel *>() != nullptr, "the panel is back in the main dock");
+
+			// A new dock (as after a restart) restores what was left detached.
+			{
+				se::ExplorerDock again;
+				again.restoreDetached();
+				pump(200);
+				expect(again.isDetached(P::Filters) && !again.isDetached(P::Transform),
+				       "detached tabs are restored on the next start");
+				again.reattachAll();
+				pump(100);
+			}
+
+			dock.reattachAll();
+			pump(100);
+			expect(hosts.empty(), "reattach all closes every detached dock");
+
+			// A refused dock (no OBS) leaves the tab where it was.
+			se::ExplorerDock::setDockHost({[](const QString &, const QString &, QWidget *) { return false; },
+						       [](const QString &) {}});
+			dock.detachPage(P::Audio);
+			expect(!dock.isDetached(P::Audio) && dock.findChild<se::AudioPanel *>() != nullptr,
+			       "a failed detach changes nothing");
+		}
 
 		stage("click everything and open every menu on the dock");
 		clickEverything(&dock);

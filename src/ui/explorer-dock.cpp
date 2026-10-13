@@ -4,7 +4,9 @@
 #include "core/obs-event-bridge.hpp"
 #include "core/obs-raii.hpp"
 #include "core/quick-access.hpp"
+#include "ui/dock-placement.hpp"
 #include "ui/dock-style.hpp"
+#include "util/plugin-config.hpp"
 #include "ui/quick-access-bar.hpp"
 #include "ui/panels/audio-panel.hpp"
 #include "ui/panels/filters-panel.hpp"
@@ -27,6 +29,9 @@
 #include <QShowEvent>
 #include <QLabel>
 #include <QListWidget>
+#include <QMenu>
+#include <QPushButton>
+#include <QSettings>
 #include <QPropertyAnimation>
 #include <QScrollArea>
 #include <QStackedWidget>
@@ -121,6 +126,7 @@ ExplorerDock::ExplorerDock(QWidget *parent) : QWidget(parent)
 	auto addPage = [this](QWidget *page, bool scrolls) {
 		if (!scrolls) {
 			stack_->addWidget(page);
+			pages_[stack_->count() - 1] = page;
 			return;
 		}
 		auto *area = new QScrollArea(stack_);
@@ -129,6 +135,7 @@ ExplorerDock::ExplorerDock(QWidget *parent) : QWidget(parent)
 		area->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
 		area->setWidget(page); // the scroll area owns the page
 		stack_->addWidget(area);
+		pages_[stack_->count() - 1] = area;
 	};
 
 	for (int i = 0; i < PageCount; ++i) {
@@ -168,6 +175,8 @@ ExplorerDock::ExplorerDock(QWidget *parent) : QWidget(parent)
 	}
 	rail_->setCurrentRow(Overview);
 	connect(rail_, &QListWidget::currentRowChanged, stack_, &QStackedWidget::setCurrentIndex);
+	rail_->setContextMenuPolicy(Qt::CustomContextMenu);
+	connect(rail_, &QWidget::customContextMenuRequested, this, &ExplorerDock::showRailMenu);
 
 	body->addWidget(rail_);
 	body->addWidget(stack_, 1);
@@ -227,6 +236,8 @@ void ExplorerDock::updateFilterContext(obs_sceneitem_t *item, obs_source_t *edit
 
 void ExplorerDock::applySelection(obs_sceneitem_t *item, obs_source_t *editScene)
 {
+	if (panelsGone_)
+		return;
 	transform_->setItem(item);
 	overview_->setItem(item);
 	sourcePanel_->setItem(item);
@@ -246,6 +257,8 @@ QString ExplorerDock::editSceneName() const
 
 void ExplorerDock::syncSelection()
 {
+	if (panelsGone_)
+		return;
 	// Studio mode edits the preview scene; otherwise the program scene.
 	obs::SourceRef scene = obs::adopt(obs_frontend_preview_program_mode_active()
 						  ? obs_frontend_get_current_preview_scene()
@@ -325,6 +338,7 @@ void ExplorerDock::updateBars()
 // Close the tree, go back to Overview and release a pin. Selection and any loaded device stay.
 void ExplorerDock::resetUi()
 {
+	reattachAll();
 	hold_ = false;
 	quick_->setPinned(false);
 	drawerButton_->setChecked(false);
@@ -335,7 +349,7 @@ void ExplorerDock::resetUi()
 
 void ExplorerDock::setPinnedSource(obs_source_t *source)
 {
-	if (!source)
+	if (!source || panelsGone_)
 		return;
 	pinned_ = obs::retain(source);
 	transform_->setItem(nullptr); // global devices have no transform
@@ -370,9 +384,11 @@ void ExplorerDock::updateTabVisibility()
 		/* Overview */ true,    /* Source */ hasSource, /* Transform */ hasItem, /* Audio */ hasAudio,
 		/* Filters */ hasSource, /* Properties */ hasSource, /* Misc */ hasSource,
 	};
-	for (int i = 0; i < PageCount; ++i)
-		if (rail_->item(i)->isHidden() == visible[i])
-			rail_->item(i)->setHidden(!visible[i]);
+	for (int i = 0; i < PageCount; ++i) {
+		const bool show = visible[i] && !isDetached(Page(i)); // a detached tab lives in its own dock
+		if (rail_->item(i)->isHidden() == show)
+			rail_->item(i)->setHidden(!show);
+	}
 
 	if (rail_->currentItem() == nullptr || rail_->currentItem()->isHidden())
 		rail_->setCurrentRow(Overview);
@@ -501,6 +517,8 @@ void ExplorerDock::onFrontendEvent(int event)
 	switch (event) {
 	case OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGING:
 	case OBS_FRONTEND_EVENT_EXIT:
+		if (panelsGone_)
+			break;
 		// Let go of every scene item / source before OBS tears the collection down.
 		pinned_.reset();
 		lastItem_.reset();
@@ -577,6 +595,173 @@ void ExplorerDock::changeEvent(QEvent *event)
 QSize ExplorerDock::sizeHint() const
 {
 	return QSize(420, 620); // first-show size for a floating dock
+}
+
+// ---------------------------------------------------------------------------
+// Detachable tabs
+// ---------------------------------------------------------------------------
+namespace {
+
+const char *const kPageIds[ExplorerDock::PageCount] = {"overview", "source", "transform", "audio",
+							"filters", "properties", "misc"};
+const char *const kPageTitles[ExplorerDock::PageCount] = {"Overview", "Source", "Transform", "Audio",
+							   "Filters", "Properties", "Misc"};
+
+QString dockIdFor(int page)
+{
+	return QStringLiteral("source-explorer-tab-") + kPageIds[page];
+}
+
+// What goes into the new OBS dock: a Reattach button over the page. The page keeps being fed by the
+// main dock, so it follows the selection exactly as it did inside it.
+class DetachedTab final : public QWidget {
+public:
+	DetachedTab(QWidget *page, const std::function<void()> &onReattach) : QWidget(nullptr)
+	{
+		setStyleSheet(dockStyleSheet()); // the main dock's styling does not reach a separate dock
+		auto *layout = new QVBoxLayout(this);
+		layout->setContentsMargins(6, 4, 6, 6);
+		auto *bar = new QHBoxLayout;
+		bar->addStretch(1);
+		auto *button = new QPushButton(QObject::tr("Reattach"), this);
+		button->setToolTip(QObject::tr("Put this tab back into the Source Explorer dock"));
+		QObject::connect(button, &QPushButton::clicked, this, [onReattach] { onReattach(); });
+		bar->addWidget(button);
+		layout->addLayout(bar);
+		layout->addWidget(page, 1);
+	}
+};
+
+ExplorerDock::DockHost &dockHost()
+{
+	static ExplorerDock::DockHost host = [] {
+		ExplorerDock::DockHost h;
+		h.add = [](const QString &id, const QString &title, QWidget *content) {
+			if (!obs_frontend_add_dock_by_id(id.toUtf8().constData(), title.toUtf8().constData(), content))
+				return false;
+			if (auto *wrapper = qobject_cast<QDockWidget *>(content->parentWidget()))
+				new FloatingDockRescue(wrapper); // keep a floating dock's title bar reachable
+			return true;
+		};
+		h.remove = [](const QString &id) { obs_frontend_remove_dock(id.toUtf8().constData()); };
+		return h;
+	}();
+	return host;
+}
+
+} // namespace
+
+void ExplorerDock::setDockHost(DockHost host)
+{
+	dockHost() = std::move(host);
+}
+
+QStringList ExplorerDock::detachedDockIds()
+{
+	QStringList ids;
+	for (int i = 0; i < PageCount; ++i)
+		ids << dockIdFor(i);
+	return ids;
+}
+
+void ExplorerDock::saveDetached() const
+{
+	QStringList names;
+	for (int i = 0; i < PageCount; ++i)
+		if (isDetached(Page(i)))
+			names << kPageIds[i];
+	if (names.isEmpty())
+		uiSettings().remove("tabs/detached");
+	else
+		uiSettings().setValue("tabs/detached", names);
+}
+
+void ExplorerDock::detachPage(Page page)
+{
+	if (isDetached(page) || !pages_[page] || panelsGone_)
+		return;
+	QWidget *area = pages_[page];
+
+	// A placeholder keeps every other page at the same stack index as its rail row.
+	auto *placeholder = new QLabel(tr("This tab is open in its own dock.\nUse its Reattach button, or Reset UI."));
+	placeholder->setAlignment(Qt::AlignCenter);
+	placeholder->setWordWrap(true);
+	stack_->removeWidget(area);
+	stack_->insertWidget(page, placeholder);
+
+	auto *host = new DetachedTab(area, [this, page] {
+		QTimer::singleShot(0, this, [this, page] { reattachPage(page); }); // not from inside its own button
+	});
+	if (!dockHost().add(dockIdFor(page), tr("Source Explorer: %1").arg(tr(kPageTitles[page])), host)) {
+		stack_->removeWidget(placeholder);
+		delete placeholder;
+		stack_->insertWidget(page, area); // takes it back out of the host
+		delete host;
+		return;
+	}
+	detached_[page].host = host;
+	// The host disappearing for any reason other than our own reattach means OBS is tearing down.
+	connect(host, &QObject::destroyed, this, [this] {
+		if (!reattaching_)
+			panelsGone_ = true;
+	});
+	saveDetached();
+	updateTabVisibility();
+}
+
+void ExplorerDock::reattachPage(Page page)
+{
+	if (!isDetached(page))
+		return;
+	QPointer<QWidget> host = detached_[page].host;
+	reattaching_ = true;
+	QWidget *placeholder = stack_->widget(page);
+	stack_->removeWidget(placeholder);
+	placeholder->deleteLater();
+	stack_->insertWidget(page, pages_[page]); // out of the host, back in place
+	pages_[page]->show();
+	dockHost().remove(dockIdFor(page));
+	if (host)
+		host->deleteLater(); // the host did not go with its dock
+	detached_[page].host = nullptr;
+	reattaching_ = false;
+
+	saveDetached();
+	updateTabVisibility();
+	if (!rail_->item(page)->isHidden())
+		rail_->setCurrentRow(page);
+}
+
+void ExplorerDock::reattachAll()
+{
+	for (int i = 0; i < PageCount; ++i)
+		reattachPage(Page(i));
+}
+
+void ExplorerDock::restoreDetached()
+{
+	const QStringList names = uiSettings().value("tabs/detached").toStringList();
+	for (int i = 0; i < PageCount; ++i)
+		if (names.contains(kPageIds[i]))
+			detachPage(Page(i));
+}
+
+void ExplorerDock::showRailMenu(const QPoint &pos)
+{
+	QMenu menu(rail_);
+	if (QListWidgetItem *item = rail_->itemAt(pos)) {
+		const Page page = Page(rail_->row(item));
+		menu.addAction(tr("Detach \"%1\" into its own dock").arg(item->text()), this,
+			       [this, page] { QTimer::singleShot(0, this, [this, page] { detachPage(page); }); });
+	}
+	for (int i = 0; i < PageCount; ++i) {
+		if (isDetached(Page(i))) {
+			menu.addAction(tr("Reattach all tabs"), this, [this] { reattachAll(); });
+			break;
+		}
+	}
+	if (!menu.isEmpty())
+		menu.exec(rail_->mapToGlobal(pos));
 }
 
 } // namespace se

@@ -5,6 +5,9 @@
 
 #include <QWidget>
 
+#include <QPointer>
+
+#include <functional>
 #include <string>
 
 class QBoxLayout;
@@ -50,6 +53,23 @@ public:
 	void setDrawerWidth(int width);
 
 	enum Page { Overview, Source, Transform, Audio, Filters, Properties, Misc, PageCount };
+
+	// A tab can be moved out of the dock into its own OBS dock (right-click it in the rail). The panel
+	// is the same object, so it keeps following the selection. Which tabs are detached is remembered.
+	void detachPage(Page page);
+	void reattachPage(Page page);
+	void reattachAll();
+	bool isDetached(Page page) const { return detached_[page].host != nullptr; }
+	void restoreDetached(); // call once the main dock is in OBS: re-detaches what was detached last time
+	static QStringList detachedDockIds();
+
+	// How a detached tab becomes an OBS dock. Defaults to obs_frontend_add_dock_by_id / remove_dock;
+	// the headless smoke test substitutes plain windows.
+	struct DockHost {
+		std::function<bool(const QString &id, const QString &title, QWidget *content)> add;
+		std::function<void(const QString &id)> remove;
+	};
+	static void setDockHost(DockHost host);
 
 private slots:
 	void onFrontendEvent(int event);
@@ -102,6 +122,16 @@ private:
 	bool hold_ = false;           // Pin: stay on the loaded source instead of following OBS's selection
 	bool allowOverride_ = false;  // one-shot: a deliberate pick (source tree) may leave a held source
 	std::string rootSceneName_;   // the scene being edited when the current item was picked
+
+	struct Detached {
+		QPointer<QWidget> host; // the widget OBS owns in the new dock
+	};
+	Detached detached_[PageCount];
+	QWidget *pages_[PageCount] = {}; // what sits in stack_ for each page (its scroll area)
+	bool reattaching_ = false;
+	bool panelsGone_ = false;        // a detached dock was destroyed under us (OBS shutting down)
+	void showRailMenu(const QPoint &pos);
+	void saveDetached() const;
 
 	obs::SourceRef pinned_; // non-null while a global audio device is shown
 	obs::SceneItemRef lastItem_; // OBS's selection as of the previous poll
