@@ -315,6 +315,27 @@ int main(int argc, char **argv)
 		bridge->frontendEvent(int(OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGING));
 		pump(300);
 
+		stage("dashboard card");
+		{
+			se::OverviewPanel ov;
+			ov.resize(500, 600);
+			ov.show();
+			pump(700);
+			auto *welcome = ov.findChild<QPushButton *>("seWelcomeButton");
+			expect(welcome && welcome->isVisible(), "the welcome card shows while nothing is loaded");
+			int asked = 0;
+			QObject::connect(&ov, &se::OverviewPanel::pickSourceRequested, [&] { ++asked; });
+			if (welcome)
+				welcome->click();
+			expect(asked == 1, "the welcome button asks for the source picker");
+			ov.setItem(item);
+			pump(700);
+			expect(welcome && !welcome->isVisible(), "the card gives way to the source's details");
+			ov.setItem(nullptr);
+			pump(700);
+			expect(welcome && welcome->isVisible(), "the card returns when nothing is loaded");
+		}
+
 		stage("load an item from a non-live scene");
 		dock.loadItem(item, "Smoke A");
 		pump(400);

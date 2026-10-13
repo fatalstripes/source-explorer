@@ -146,6 +146,7 @@ ExplorerDock::ExplorerDock(QWidget *parent) : QWidget(parent)
 		switch (i) {
 		case Overview:
 			overview_ = new OverviewPanel;
+			connect(overview_, &OverviewPanel::pickSourceRequested, this, &ExplorerDock::openPicker);
 			addPage(overview_, true);
 			break;
 		case Source:

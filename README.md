@@ -16,7 +16,7 @@ It is an independent, from-scratch implementation inspired by the StreamUP Sourc
   Scene > Group > Source status bar with a wrong-scene warning, and a quick-access bar that adapts to the
   source (visibility, lock, snapshot, pin, mute, monitoring, browser refresh, capture activate,
   transform popup, media controls).
-- **Tabs** that hide when they do not apply: Overview, Source, Transform, Audio, Filters, Properties, Misc.
+- **Tabs** that hide when they do not apply (Overview doubles as a welcome card with a Select a source button while nothing is loaded): Overview, Source, Transform, Audio, Filters, Properties, Misc.
 - **Source tree drawer**: scenes, groups and items with live show/lock toggles, search, and the global audio devices. Expand all, collapse all and refresh, and the loaded source in green.
 - **Command copier**: right-click a field for its command, or a label for combined commands (position X+Y,
   size, full transform, full payload...). Each offers Streamer.bot C#, obs-websocket Set and Get, plus Reset.

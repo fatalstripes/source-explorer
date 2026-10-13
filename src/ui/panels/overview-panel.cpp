@@ -61,7 +61,29 @@ void OverviewPanel::buildUi()
 {
 	auto *root = new QVBoxLayout(this);
 
+	// Dashboard card: the landing page while nothing is loaded.
+	auto *welcome = new QGroupBox(tr("Welcome to Source Explorer"), this);
+	welcome_ = welcome;
+	auto *welcomeLayout = new QVBoxLayout(welcome);
+	auto *intro = new QLabel(tr("Nothing is loaded yet. Select a source in the OBS preview or its Sources list "
+				    "and everything about it appears here, or choose one yourself."),
+				 welcome);
+	intro->setWordWrap(true);
+	welcomeLayout->addWidget(intro);
+	auto *pick = new QPushButton(tr("Select a source..."), welcome);
+	pick->setObjectName("seWelcomeButton");
+	connect(pick, &QPushButton::clicked, this, &OverviewPanel::pickSourceRequested);
+	welcomeLayout->addWidget(pick);
+	auto *tips = new QLabel(tr("Tip: right-click almost any field to copy a Streamer.bot or obs-websocket command "
+				   "for it."),
+				welcome);
+	tips->setWordWrap(true);
+	tips->setForegroundRole(QPalette::PlaceholderText);
+	welcomeLayout->addWidget(tips);
+	root->addWidget(welcome);
+
 	auto *info = new QGroupBox(tr("Selection"), this);
+	infoBox_ = info;
 	auto *form = new QFormLayout(info);
 	auto row = [&](const QString &label) {
 		auto *l = new QLabel(info);
@@ -79,6 +101,7 @@ void OverviewPanel::buildUi()
 	root->addWidget(info);
 
 	auto *box = new QGroupBox(tr("Quick actions"), this);
+	actionsBox_ = box;
 	auto *grid = new QGridLayout(box);
 
 	addAction(grid, 0, 0, tr("Center"), [this] { return ops::planCenter(item_.get()); }, QString());
@@ -110,12 +133,6 @@ void OverviewPanel::buildUi()
 	});
 
 	root->addWidget(box);
-
-	hint_ = new QLabel(tr("Select a source in the OBS preview, or open Sources above to pick one."), this);
-	hint_->setObjectName("seHint");
-	hint_->setWordWrap(true);
-	hint_->setForegroundRole(QPalette::PlaceholderText);
-	root->addWidget(hint_);
 
 	status_ = new QLabel(this);
 	status_->setWordWrap(true);
@@ -208,7 +225,9 @@ void OverviewPanel::refresh()
 	const Canvas canvas = ops::canvas();
 	canvasSize_->setText(dims(canvas.w, canvas.h));
 
-	hint_->setVisible(!src);
+	welcome_->setVisible(!src);
+	infoBox_->setVisible(src != nullptr);
+	actionsBox_->setVisible(src != nullptr);
 	if (!src) {
 		for (auto *l : {name_, type_, sourceSize_, onCanvas_, position_, rotation_})
 			l->clear();

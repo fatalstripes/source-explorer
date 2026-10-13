@@ -30,6 +30,10 @@ public:
 	// A source with no scene item (a global audio device): summary only, no actions.
 	void setSource(obs_source_t *source);
 
+signals:
+	// The welcome card's button: the user wants to choose a source (the dock opens the picker).
+	void pickSourceRequested();
+
 private slots:
 	void refresh();
 
@@ -63,7 +67,9 @@ private:
 	QLabel *rotation_ = nullptr;
 	QLabel *canvasSize_ = nullptr;
 	QLabel *status_ = nullptr;
-	QLabel *hint_ = nullptr; // shown while nothing is selected
+	QWidget *welcome_ = nullptr;    // the dashboard card, shown while nothing is loaded
+	QWidget *infoBox_ = nullptr;    // selection details, shown once something is loaded
+	QWidget *actionsBox_ = nullptr; // quick actions, likewise
 	QTimer *poll_ = nullptr;
 };
 
